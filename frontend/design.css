@@ -1,0 +1,1338 @@
+/* =========================================================
+   DT-SDA
+   DIGITAL TWIN SECURE DOCUMENT AUTHENTICATION
+   DARK PROFESSIONAL DASHBOARD
+========================================================= */
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+
+  background: #050a18;
+
+  color: #ffffff;
+
+  overflow-x: hidden;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   APP
+========================================================= */
+
+.app {
+  min-height: 100vh;
+
+  display: flex;
+
+  background:
+    radial-gradient(
+      circle at 80% 5%,
+      rgba(91, 43, 224, 0.18),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(36, 108, 220, 0.08),
+      transparent 35%
+    ),
+    #050a18;
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.sidebar {
+  width: 260px;
+
+  min-height: 100vh;
+
+  position: fixed;
+
+  left: 0;
+  top: 0;
+
+  padding: 28px 18px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  background:
+    linear-gradient(
+      180deg,
+      #080e22 0%,
+      #05091a 100%
+    );
+
+  border-right: 1px solid #20294a;
+
+  z-index: 100;
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.brand {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 12px;
+
+  padding: 5px 10px 35px;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #713de7,
+      #287fe4
+    );
+
+  font-size: 22px;
+
+  box-shadow:
+    0 10px 25px rgba(94, 55, 220, 0.3);
+}
+
+.brand h2 {
+  font-size: 22px;
+
+  letter-spacing: 1px;
+}
+
+.brand p {
+  margin-top: 5px;
+
+  color: #929bb8;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+nav {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.nav-item {
+  width: 100%;
+
+  border: none;
+
+  background: transparent;
+
+  color: #9ca6c5;
+
+  padding: 14px 16px;
+
+  border-radius: 12px;
+
+  text-align: left;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+  transition: all 0.25s ease;
+}
+
+.nav-item span:first-child {
+  width: 22px;
+
+  text-align: center;
+
+  font-size: 18px;
+}
+
+.nav-item:hover {
+  background: #151c3a;
+
+  color: #ffffff;
+
+  transform: translateX(3px);
+}
+
+.nav-item.active {
+  background:
+    linear-gradient(
+      90deg,
+      #5b2be0,
+      #332078
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 10px 30px rgba(91, 43, 224, 0.25);
+}
+
+
+/* =========================================================
+   BLOCKCHAIN CARD
+========================================================= */
+
+.blockchain-card {
+  margin-top: auto;
+
+  padding: 18px;
+
+  border: 1px solid #2c3560;
+
+  border-radius: 15px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(80, 45, 170, 0.22),
+      rgba(15, 20, 45, 0.8)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.blockchain-icon {
+  width: 40px;
+  height: 40px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 11px;
+
+  background: #1a1740;
+
+  color: #a476ff;
+
+  font-size: 21px;
+
+  margin-bottom: 12px;
+}
+
+.blockchain-card h3 {
+  font-size: 13px;
+}
+
+.blockchain-card p {
+  color: #8e98b7;
+
+  font-size: 11px;
+
+  margin: 7px 0;
+}
+
+.connected {
+  color: #32e6a5;
+
+  font-size: 11px;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   WALLET
+========================================================= */
+
+.wallet-card {
+  margin-top: 12px;
+
+  padding: 12px;
+
+  border-radius: 12px;
+
+  border: 1px solid #222d51;
+
+  background: #0b1128;
+
+  display: flex;
+
+  gap: 10px;
+
+  align-items: center;
+}
+
+.wallet-avatar {
+  width: 35px;
+  height: 35px;
+
+  flex-shrink: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      135deg,
+      #713de7,
+      #27bde7
+    );
+}
+
+.wallet-card strong {
+  font-size: 10px;
+}
+
+.wallet-card small {
+  display: block;
+
+  color: #38e6a8;
+
+  font-size: 9px;
+
+  margin-top: 3px;
+}
+
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.main {
+  flex: 1;
+
+  margin-left: 260px;
+
+  min-height: 100vh;
+
+  padding: 30px 35px;
+
+  overflow-x: hidden;
+}
+
+
+/* =========================================================
+   TOPBAR
+========================================================= */
+
+.topbar {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 30px;
+}
+
+.topbar h1 {
+  font-size: 27px;
+
+  font-weight: 700;
+}
+
+.topbar p {
+  color: #7f8aaa;
+
+  margin-top: 7px;
+
+  font-size: 12px;
+}
+
+.top-actions {
+  display: flex;
+
+  gap: 12px;
+
+  align-items: center;
+}
+
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+.search {
+  width: 180px;
+
+  border: 1px solid #273155;
+
+  background: #0b1128;
+
+  border-radius: 10px;
+
+  padding: 9px 12px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #7885a6;
+}
+
+.search input {
+  background: transparent;
+
+  border: none;
+
+  outline: none;
+
+  color: white;
+
+  width: 100%;
+
+  font-size: 12px;
+}
+
+.search input::placeholder {
+  color: #69738f;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+========================================================= */
+
+.notification {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 12px;
+
+  background: #0b1128;
+
+  border: 1px solid #273155;
+
+  color: white;
+
+  position: relative;
+
+  font-size: 16px;
+}
+
+.notification span {
+  position: absolute;
+
+  top: -5px;
+  right: -5px;
+
+  background: #7443e9;
+
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  font-size: 9px;
+
+  display: grid;
+
+  place-items: center;
+}
+
+
+/* =========================================================
+   PROFILE
+========================================================= */
+
+.profile {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  background: #0b1128;
+
+  color: white;
+
+  border: 1px solid #273155;
+
+  border-radius: 12px;
+
+  padding: 8px 13px;
+
+  font-size: 11px;
+}
+
+.profile div {
+  text-align: left;
+}
+
+.profile strong {
+  display: block;
+
+  font-size: 10px;
+}
+
+.profile small {
+  color: #3de4a5;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+.content {
+  width: 100%;
+
+  max-width: 1500px;
+
+  margin: auto;
+}
+
+
+/* =========================================================
+   WELCOME
+========================================================= */
+
+.welcome {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+.welcome h2 {
+  font-size: 22px;
+}
+
+.welcome p {
+  color: #7885a5;
+
+  margin-top: 7px;
+
+  font-size: 12px;
+}
+
+.network-badge {
+  padding: 9px 14px;
+
+  border-radius: 20px;
+
+  background: #092c28;
+
+  border: 1px solid #145647;
+
+  color: #35dfa5;
+
+  font-size: 10px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   STATISTICS
+========================================================= */
+
+.stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 16px;
+
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  padding: 20px;
+
+  border-radius: 15px;
+
+  background: #0b1128;
+
+  border: 1px solid #202b50;
+
+  display: flex;
+
+  gap: 15px;
+
+  align-items: center;
+
+  transition: 0.25s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+
+  border-color: #343f67;
+
+  box-shadow:
+    0 15px 35px rgba(0,0,0,0.2);
+}
+
+.stat-card span {
+  color: #929bb8;
+
+  font-size: 11px;
+}
+
+.stat-card h2 {
+  margin: 5px 0;
+
+  font-size: 25px;
+}
+
+.stat-card small {
+  font-size: 9px;
+
+  color: #6d7897;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+
+  flex-shrink: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 13px;
+
+  font-size: 21px;
+}
+
+.purple .stat-icon {
+  background: #24144d;
+
+  color: #9a6cff;
+}
+
+.green .stat-icon {
+  background: #0b3c32;
+
+  color: #31e8a5;
+}
+
+.red .stat-icon {
+  background: #421b28;
+
+  color: #ff536e;
+}
+
+.orange .stat-icon {
+  background: #46301a;
+
+  color: #ffad46;
+}
+
+
+/* =========================================================
+   DASHBOARD GRID
+========================================================= */
+
+.dashboard-grid {
+  display: grid;
+
+  grid-template-columns:
+    2fr 1fr;
+
+  gap: 18px;
+
+  margin-bottom: 18px;
+}
+
+
+/* =========================================================
+   PANEL
+========================================================= */
+
+.panel {
+  background: #0a1128;
+
+  border: 1px solid #202b50;
+
+  border-radius: 15px;
+
+  padding: 20px;
+
+  box-shadow:
+    0 8px 30px rgba(0,0,0,0.12);
+}
+
+.panel-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+.panel-header h2 {
+  font-size: 15px;
+}
+
+.panel-header p {
+  color: #707c9e;
+
+  font-size: 10px;
+
+  margin-top: 5px;
+}
+
+
+/* =========================================================
+   CHART FILTER
+========================================================= */
+
+.chart-filter {
+  background: #111a37;
+
+  color: #b5bed5;
+
+  border: 1px solid #29345a;
+
+  padding: 7px 10px;
+
+  border-radius: 7px;
+
+  font-size: 10px;
+
+  outline: none;
+}
+
+.chart-filter option {
+  background: #0d1428;
+
+  color: white;
+}
+
+
+/* =========================================================
+   CHART
+========================================================= */
+
+.chart {
+  height: 190px;
+
+  position: relative;
+
+  border-bottom: 1px solid #202a4b;
+
+  overflow: hidden;
+}
+
+.chart-grid {
+  position: absolute;
+
+  inset: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: space-between;
+}
+
+.chart-grid span {
+  width: 100%;
+
+  border-top: 1px dashed #1b2543;
+}
+
+.chart-line {
+  position: absolute;
+
+  left: 5%;
+
+  right: 5%;
+
+  top: 55%;
+
+  height: 60px;
+
+  border-top: 3px solid #8148ff;
+
+  transform: skewY(-12deg);
+
+  filter:
+    drop-shadow(
+      0 0 8px #7443e9
+    );
+}
+
+.chart-point {
+  position: absolute;
+
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+
+  background: #b47aff;
+
+  box-shadow:
+    0 0 12px #8d4cff;
+
+  z-index: 3;
+}
+
+.p1 {
+  left: 8%;
+  top: 70%;
+}
+
+.p2 {
+  left: 25%;
+  top: 60%;
+}
+
+.p3 {
+  left: 42%;
+  top: 50%;
+}
+
+.p4 {
+  left: 58%;
+  top: 40%;
+}
+
+.p5 {
+  left: 75%;
+  top: 50%;
+}
+
+.p6 {
+  left: 92%;
+  top: 30%;
+}
+
+.x-axis {
+  position: absolute;
+
+  bottom: 7px;
+
+  left: 0;
+  right: 0;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #66718f;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   DOCUMENT STATUS
+========================================================= */
+
+.status-content {
+  display: flex;
+
+  align-items: center;
+
+  gap: 25px;
+
+  margin-top: 20px;
+}
+
+.donut {
+  width: 130px;
+  height: 130px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background:
+    conic-gradient(
+      #32dfa1 0 79%,
+      #ff526c 79% 100%
+    );
+
+  display: grid;
+
+  place-items: center;
+}
+
+.donut-inner {
+  width: 92px;
+  height: 92px;
+
+  background: #0a1128;
+
+  border-radius: 50%;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+
+  align-items: center;
+}
+
+.donut-inner strong {
+  font-size: 23px;
+}
+
+.donut-inner span {
+  color: #727d9e;
+
+  font-size: 9px;
+
+  margin-top: 3px;
+}
+
+
+/* =========================================================
+   LEGEND
+========================================================= */
+
+.legend {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 13px;
+
+  width: 100%;
+}
+
+.legend div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #a1aac0;
+
+  font-size: 10px;
+}
+
+.legend strong {
+  margin-left: auto;
+
+  color: white;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+}
+
+.green-dot {
+  background: #31e4a1;
+}
+
+.red-dot {
+  background: #ff526c;
+}
+
+.orange-dot {
+  background: #ffad46;
+}
+
+
+/* =========================================================
+   LOWER GRID
+========================================================= */
+
+.lower-grid {
+  display: grid;
+
+  grid-template-columns:
+    2fr 1fr;
+
+  gap: 18px;
+}
+
+
+/* =========================================================
+   ACTIVITY
+========================================================= */
+
+.activity {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.activity-row {
+  display: grid;
+
+  grid-template-columns:
+    35px 1fr auto;
+
+  gap: 10px;
+
+  align-items: center;
+
+  padding: 11px;
+
+  border-radius: 9px;
+
+  background: #0c142d;
+
+  border: 1px solid transparent;
+
+  transition: 0.2s;
+}
+
+.activity-row:hover {
+  border-color: #252f50;
+}
+
+.activity-row strong {
+  display: block;
+
+  font-size: 11px;
+}
+
+.activity-row small {
+  color: #697594;
+
+  font-size: 9px;
+
+  margin-top: 4px;
+
+  display: block;
+}
+
+.activity-icon {
+  width: 28px;
+  height: 28px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 8px;
+}
+
+.valid-icon {
+  color: #2fe6a2;
+
+  background: #0a3a30;
+}
+
+.invalid-icon {
+  color: #ff526c;
+
+  background: #401b27;
+}
+
+
+/* =========================================================
+   BADGES
+========================================================= */
+
+.badge {
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  font-size: 8px;
+
+  font-weight: bold;
+}
+
+.badge.valid {
+  background: #093a30;
+
+  color: #35e6a4;
+}
+
+.badge.invalid {
+  background: #431b28;
+
+  color: #ff6578;
+}
+
+
+/* =========================================================
+   SYSTEM STATUS
+========================================================= */
+
+.system-list {
+  display: flex;
+
+  flex-direction: column;
+}
+
+.system-row {
+  display: flex;
+
+  justify-content: space-between;
+
+  padding: 13px 0;
+
+  border-bottom: 1px solid #1c2644;
+
+  color: #a4aec7;
+
+  font-size: 11px;
+}
+
+.system-row:last-child {
+  border-bottom: none;
+}
+
+.online {
+  color: #35e4a5;
+
+  font-weight: 600;
+}
+
+.offline {
+  color: #ff6577;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   VIEW BUTTON
+========================================================= */
+
+.view-button {
+  background: #151c3c;
+
+  color: #aaaee9;
+
+  border: 1px solid #303b69;
+
+  padding: 7px 12px;
+
+  border-radius: 7px;
+
+  font-size: 9px;
+
+  transition: 0.2s;
+}
+
+.view-button:hover {
+  background: #202951;
+
+  color: white;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+footer {
+  text-align: center;
+
+  margin-top: 30px;
+
+  padding-bottom: 15px;
+
+  color: #4f5b78;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1200px) {
+
+  .stats {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+}
+
+
+@media (max-width: 950px) {
+
+  .dashboard-grid,
+  .lower-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 220px;
+  }
+
+  .main {
+    margin-left: 220px;
+
+    padding: 25px;
+  }
+
+}
+
+
+@media (max-width: 750px) {
+
+  .app {
+    display: block;
+  }
+
+  .sidebar {
+    position: relative;
+
+    width: 100%;
+
+    min-height: auto;
+
+    border-right: none;
+
+    border-bottom: 1px solid #20294a;
+  }
+
+  .main {
+    margin-left: 0;
+
+    padding: 20px;
+  }
+
+  .brand {
+    padding-bottom: 20px;
+  }
+
+  .blockchain-card {
+    margin-top: 20px;
+  }
+
+  .topbar {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 20px;
+  }
+
+  .top-actions {
+    width: 100%;
+
+    flex-wrap: wrap;
+  }
+
+  .search {
+    flex: 1;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .status-content {
+    flex-direction: column;
+  }
+
+}
+
+
+@media (max-width: 500px) {
+
+  .main {
+    padding: 15px;
+  }
+
+  .topbar h1 {
+    font-size: 22px;
+  }
+
+  .welcome {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 12px;
+  }
+
+  .top-actions {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+  .search {
+    width: 100%;
+  }
+
+  .notification,
+  .profile {
+    width: 100%;
+  }
+
+  .about-features {
+    grid-template-columns: 1fr;
+  }
+
+}

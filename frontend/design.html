@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>DT-SDA | Digital Twin Secure Document Authentication</title>
+
+  <link rel="stylesheet" href="Design.css">
+</head>
+
+<body>
+
+  <div class="app">
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+      <!-- BRAND -->
+
+      <div class="brand">
+
+        <div class="brand-icon">
+          🛡
+        </div>
+
+        <div>
+          <h2>DT-SDA</h2>
+
+          <p>
+            Digital Twin Secure<br>
+            Document Authentication
+          </p>
+        </div>
+
+      </div>
+
+
+      <!-- NAVIGATION -->
+
+      <nav>
+
+        <button class="nav-item active">
+          <span>⌂</span>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item">
+          <span>▣</span>
+          <span>Issuer</span>
+        </button>
+
+        <button class="nav-item">
+          <span>✓</span>
+          <span>Verifier</span>
+        </button>
+
+        <button class="nav-item">
+          <span>◷</span>
+          <span>History</span>
+        </button>
+
+        <button class="nav-item">
+          <span>ⓘ</span>
+          <span>About</span>
+        </button>
+
+      </nav>
+
+
+      <!-- BLOCKCHAIN -->
+
+      <div class="blockchain-card">
+
+        <div class="blockchain-icon">
+          ⛓
+        </div>
+
+        <h3>
+          Blockchain
+        </h3>
+
+        <p>
+          Ethereum Sepolia
+        </p>
+
+        <span class="connected">
+          ● Connected
+        </span>
+
+      </div>
+
+
+      <!-- WALLET -->
+
+      <div class="wallet-card">
+
+        <div class="wallet-avatar">
+          ◉
+        </div>
+
+        <div>
+
+          <strong>
+            0x3cEc7...7dB0c
+          </strong>
+
+          <small>
+            ● Connected
+          </small>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="main">
+
+      <!-- TOP BAR -->
+
+      <header class="topbar">
+
+        <div>
+
+          <h1>
+            Dashboard
+          </h1>
+
+          <p>
+            Secure document authentication platform
+          </p>
+
+        </div>
+
+
+        <div class="top-actions">
+
+          <!-- SEARCH -->
+
+          <div class="search">
+
+            <span>🔍</span>
+
+            <input
+              type="text"
+              placeholder="Search..."
+            >
+
+          </div>
+
+
+          <!-- NOTIFICATION -->
+
+          <button class="notification">
+
+            🔔
+
+            <span>
+              3
+            </span>
+
+          </button>
+
+
+          <!-- PROFILE -->
+
+          <button class="profile">
+
+            🦊
+
+            <div>
+
+              <strong>
+                0x3cEc7...
+              </strong>
+
+              <small>
+                Connected ●
+              </small>
+
+            </div>
+
+            <span>▼</span>
+
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <!-- =====================================================
+           CONTENT
+      ====================================================== -->
+
+      <section class="content">
+
+
+        <!-- WELCOME -->
+
+        <section class="welcome">
+
+          <div>
+
+            <h2>
+              Welcome to DT-SDA
+            </h2>
+
+            <p>
+              Secure, transparent and tamper-resistant
+              document authentication.
+            </p>
+
+          </div>
+
+          <div class="network-badge">
+            ● Ethereum Sepolia
+          </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             STATISTICS
+        ====================================================== -->
+
+        <section class="stats">
+
+
+          <!-- TOTAL -->
+
+          <div class="stat-card purple">
+
+            <div class="stat-icon">
+              📄
+            </div>
+
+            <div>
+
+              <span>
+                Total Documents
+              </span>
+
+              <h2>
+                124
+              </h2>
+
+              <small>
+                ↑ +12 this week
+              </small>
+
+            </div>
+
+          </div>
+
+
+          <!-- VERIFIED -->
+
+          <div class="stat-card green">
+
+            <div class="stat-icon">
+              ✓
+            </div>
+
+            <div>
+
+              <span>
+                Verified
+              </span>
+
+              <h2>
+                98
+              </h2>
+
+              <small>
+                79.03%
+              </small>
+
+            </div>
+
+          </div>
+
+
+          <!-- INVALID -->
+
+          <div class="stat-card red">
+
+            <div class="stat-icon">
+              !
+            </div>
+
+            <div>
+
+              <span>
+                Invalid
+              </span>
+
+              <h2>
+                26
+              </h2>
+
+              <small>
+                20.97%
+              </small>
+
+            </div>
+
+          </div>
+
+
+          <!-- PENDING -->
+
+          <div class="stat-card orange">
+
+            <div class="stat-icon">
+              ◷
+            </div>
+
+            <div>
+
+              <span>
+                Pending
+              </span>
+
+              <h2>
+                0
+              </h2>
+
+              <small>
+                0%
+              </small>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             DASHBOARD GRID
+        ====================================================== -->
+
+        <section class="dashboard-grid">
+
+
+          <!-- VERIFICATION TRENDS -->
+
+          <div class="panel">
+
+            <div class="panel-header">
+
+              <div>
+
+                <h2>
+                  Verification Trends
+                </h2>
+
+                <p>
+                  Document verification activity
+                </p>
+
+              </div>
+
+
+              <select class="chart-filter">
+
+                <option>
+                  7 Days
+                </option>
+
+                <option>
+                  30 Days
+                </option>
+
+                <option>
+                  90 Days
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="chart">
+
+              <div class="chart-grid">
+
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+
+              </div>
+
+
+              <div class="chart-line"></div>
+
+              <div class="chart-point p1"></div>
+              <div class="chart-point p2"></div>
+              <div class="chart-point p3"></div>
+              <div class="chart-point p4"></div>
+              <div class="chart-point p5"></div>
+              <div class="chart-point p6"></div>
+
+
+              <div class="x-axis">
+
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+                <span>Sun</span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- =====================================================
+               DOCUMENT STATUS
+          ====================================================== -->
+
+          <div class="panel">
+
+            <div class="panel-header">
+
+              <div>
+
+                <h2>
+                  Document Status
+                </h2>
+
+                <p>
+                  Current document verification
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div class="status-content">
+
+
+              <!-- DONUT -->
+
+              <div class="donut">
+
+                <div class="donut-inner">
+
+                  <strong>
+                    124
+                  </strong>
+
+                  <span>
+                    Total
+                  </span>
+
+                </div>
+
+              </div>
+
+
+              <!-- LEGEND -->
+
+              <div class="legend">
+
+                <div>
+
+                  <span class="dot green-dot"></span>
+
+                  <span>
+                    Valid
+                  </span>
+
+                  <strong>
+                    98
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span class="dot red-dot"></span>
+
+                  <span>
+                    Invalid
+                  </span>
+
+                  <strong>
+                    26
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span class="dot orange-dot"></span>
+
+                  <span>
+                    Pending
+                  </span>
+
+                  <strong>
+                    0
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             LOWER GRID
+        ====================================================== -->
+
+        <section class="lower-grid">
+
+
+          <!-- RECENT ACTIVITIES -->
+
+          <div class="panel">
+
+            <div class="panel-header">
+
+              <div>
+
+                <h2>
+                  Recent Activities
+                </h2>
+
+                <p>
+                  Latest document operations
+                </p>
+
+              </div>
+
+              <button class="view-button">
+                View All →
+              </button>
+
+            </div>
+
+
+            <div class="activity">
+
+
+              <div class="activity-row">
+
+                <div class="activity-icon valid-icon">
+                  ✓
+                </div>
+
+                <div>
+
+                  <strong>
+                    Document Verified
+                  </strong>
+
+                  <small>
+                    DOC003
+                  </small>
+
+                </div>
+
+                <span class="badge valid">
+                  VALID
+                </span>
+
+              </div>
+
+
+              <div class="activity-row">
+
+                <div class="activity-icon valid-icon">
+                  ✓
+                </div>
+
+                <div>
+
+                  <strong>
+                    Document Registered
+                  </strong>
+
+                  <small>
+                    DOC003
+                  </small>
+
+                </div>
+
+                <span class="badge valid">
+                  SUCCESS
+                </span>
+
+              </div>
+
+
+              <div class="activity-row">
+
+                <div class="activity-icon invalid-icon">
+                  !
+                </div>
+
+                <div>
+
+                  <strong>
+                    Document Verified
+                  </strong>
+
+                  <small>
+                    DOC002
+                  </small>
+
+                </div>
+
+                <span class="badge invalid">
+                  INVALID
+                </span>
+
+              </div>
+
+
+              <div class="activity-row">
+
+                <div class="activity-icon valid-icon">
+                  ✓
+                </div>
+
+                <div>
+
+                  <strong>
+                    Document Registered
+                  </strong>
+
+                  <small>
+                    DOC002
+                  </small>
+
+                </div>
+
+                <span class="badge valid">
+                  SUCCESS
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- =====================================================
+               SYSTEM STATUS
+          ====================================================== -->
+
+          <div class="panel">
+
+            <div class="panel-header">
+
+              <div>
+
+                <h2>
+                  System Status
+                </h2>
+
+                <p>
+                  Service health
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div class="system-list">
+
+              <div class="system-row">
+
+                <span>
+                  Backend API
+                </span>
+
+                <span class="online">
+                  ● Online
+                </span>
+
+              </div>
+
+
+              <div class="system-row">
+
+                <span>
+                  Blockchain
+                </span>
+
+                <span class="online">
+                  ● Connected
+                </span>
+
+              </div>
+
+
+              <div class="system-row">
+
+                <span>
+                  IPFS Storage
+                </span>
+
+                <span class="online">
+                  ● Online
+                </span>
+
+              </div>
+
+
+              <div class="system-row">
+
+                <span>
+                  AI Risk Engine
+                </span>
+
+                <span class="online">
+                  ● Operational
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- FOOTER -->
+
+        <footer>
+          DT-SDA © 2026 | Secure • Transparent • Reliable
+        </footer>
+
+      </section>
+
+    </main>
+
+  </div>
+
+</body>
+
+</html>

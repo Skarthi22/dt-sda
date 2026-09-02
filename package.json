@@ -1,0 +1,42 @@
+{
+  "name": "dt-sda",
+  "version": "0.1.0",
+  "description": "DT-SDA: Digital Twin Framework for Secure Document Authentication (Blockchain + MetaMask MVP)",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "node": "hardhat node",
+    "backend": "node backend/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "better-sqlite3": "^11.1.2",
+    "cors": "^2.8.6",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.17.0",
+    "express": "^4.22.2",
+    "form-data": "^4.0.6",
+    "imghash": "^0.0.9",
+    "mammoth": "^1.12.2",
+    "multer": "^1.4.5-lts.1",
+    "pdf-poppler": "^0.2.3",
+    "qrcode": "^1.5.4",
+    "qrcode.react": "^4.2.0",
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.29.1"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
