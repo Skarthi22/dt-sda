@@ -8,5 +8,6 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+    allowedHosts: ["dt-sda-frontend.onrender.com"],
   },
 });
