@@ -69,19 +69,31 @@ function App() {
 
     const [history, setHistory] = useState([]);
 
+    /* =====================================================
+       OPEN VERIFY PAGE FROM QR CODE
+       ===================================================== */
+
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
+
+        const params = new URLSearchParams(
+            window.location.search
+        );
 
         const pageParam = params.get("page");
         const twinIdParam = params.get("twinId");
 
         if (pageParam === "verify") {
+
             setPage("verify");
+            setVerification(null);
+            setMessage(null);
 
             if (twinIdParam) {
                 setVerifyTwinId(twinIdParam);
             }
+
         }
+
     }, []);
 
     /* =====================================================
@@ -1184,6 +1196,22 @@ function App() {
                         file
                     );
 
+                /* ---------------------------------------------
+                   QR CODE FOR EXISTING TWIN
+                   --------------------------------------------- */
+
+                const qrText =
+                    `${window.location.origin}/?page=verify&twinId=${twinId}`;
+
+                const qr =
+                    await QRCode.toDataURL(
+                        qrText,
+                        {
+                            width: 260,
+                            margin: 2
+                        }
+                    );
+
                 const existingResult = {
 
                     twinId,
@@ -1199,6 +1227,8 @@ function App() {
 
                     documentType:
                         existingType,
+
+                    qr,
 
                     timestamp:
                         new Date(
