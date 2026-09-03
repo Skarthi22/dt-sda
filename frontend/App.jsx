@@ -958,6 +958,30 @@ function App() {
                 error
             );
 
+            const errorText =
+                String(
+                    error?.shortMessage ||
+                    error?.reason ||
+                    error?.message ||
+                    ""
+                ).toLowerCase();
+
+            /*
+             * IMPORTANT:
+             * "Twin does not exist" means this is a NEW document.
+             * It is not a blockchain/ABI error, so allow registration
+             * to continue. Other blockchain errors are still thrown.
+             */
+            if (
+                errorText.includes("twin does not exist")
+            ) {
+                console.log(
+                    "Twin does not exist. Continuing with new registration."
+                );
+
+                return null;
+            }
+
             throw new Error(
                 error?.shortMessage ||
                 error?.reason ||
