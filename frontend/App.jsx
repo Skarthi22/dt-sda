@@ -70,33 +70,6 @@ function App() {
     const [history, setHistory] = useState([]);
 
     /* =====================================================
-       OPEN VERIFY PAGE FROM QR CODE
-       ===================================================== */
-
-    useEffect(() => {
-
-        const params = new URLSearchParams(
-            window.location.search
-        );
-
-        const pageParam = params.get("page");
-        const twinIdParam = params.get("twinId");
-
-        if (pageParam === "verify") {
-
-            setPage("verify");
-            setVerification(null);
-            setMessage(null);
-
-            if (twinIdParam) {
-                setVerifyTwinId(twinIdParam);
-            }
-
-        }
-
-    }, []);
-
-    /* =====================================================
        LOAD HISTORY
        ===================================================== */
 
@@ -1196,22 +1169,6 @@ function App() {
                         file
                     );
 
-                /* ---------------------------------------------
-                   QR CODE FOR EXISTING TWIN
-                   --------------------------------------------- */
-
-                const qrText =
-                    `${window.location.origin}/?page=verify&twinId=${twinId}`;
-
-                const qr =
-                    await QRCode.toDataURL(
-                        qrText,
-                        {
-                            width: 260,
-                            margin: 2
-                        }
-                    );
-
                 const existingResult = {
 
                     twinId,
@@ -1227,8 +1184,6 @@ function App() {
 
                     documentType:
                         existingType,
-
-                    qr,
 
                     timestamp:
                         new Date(
@@ -4321,29 +4276,14 @@ function handleFileChangeOutside(
 
     if (!selected) return;
 
-    const allowedExtensions = [
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".pdf",
-        ".docx"
+    const allowed = [
+        "image/jpeg",
+        "image/png",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ];
 
-    const fileName =
-        selected.name.toLowerCase();
-
-    const extension =
-        fileName.includes(".")
-            ? fileName.substring(
-                fileName.lastIndexOf(".")
-            )
-            : "";
-
-    if (
-        !allowedExtensions.includes(
-            extension
-        )
-    ) {
+    if (!allowed.includes(selected.type)) {
 
         alert(
             "Please select JPG, PNG, PDF or DOCX."
