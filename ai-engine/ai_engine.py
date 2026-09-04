@@ -11,7 +11,7 @@ import traceback
 app = Flask(__name__)
 CORS(app)
 
-PORT = 5001
+PORT = int(os.environ.get("PORT", 5001))
 
 
 # =========================================================
@@ -362,14 +362,16 @@ def risk_analysis():
         # These names MUST match App.jsx
         # -------------------------------------------------
 
-        registered_hash = request.form.get(
-            "registered_hash",
-            ""
+        registered_hash = (
+            request.form.get("registered_hash")
+            or request.form.get("registeredHash")
+            or ""
         ).strip()
 
-        registered_phash = request.form.get(
-            "registered_phash",
-            ""
+        registered_phash = (
+            request.form.get("registered_phash")
+            or request.form.get("registeredPHash")
+            or ""
         ).strip()
 
         # -------------------------------------------------
@@ -504,14 +506,14 @@ if __name__ == "__main__":
     print("        DT-SDA AI ENGINE")
     print("=" * 50)
     print(
-        "AI Engine: http://127.0.0.1:5001"
+        f"AI Engine: http://0.0.0.0:{PORT}"
     )
     print("Status: ONLINE")
     print("=" * 50)
     print("")
 
     app.run(
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=PORT,
         debug=False
     )
