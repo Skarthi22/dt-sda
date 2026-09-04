@@ -39,6 +39,84 @@ const CONTRACT_ABI = [
 ];
 
 /* =========================================================
+   VERIFICATION RISK
+   ========================================================= */
+
+const RISK_STORAGE_KEY = "dtsda_verification_risk_v2";
+const RISK_STEP = 25;
+const RISK_MAX = 100;
+const BLOCK_SECONDS = 60;
+
+function riskKey(twinId) {
+    return String(twinId || "").trim().toLowerCase();
+}
+
+function getRiskState(twinId) {
+    const key = riskKey(twinId);
+    if (!key) return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    try {
+        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
+        const x = store[key] || {};
+        return {
+            score: Math.max(0, Math.min(100, Number(x.score) || 0)),
+            invalidAttempts: Math.max(0, Number(x.invalidAttempts) || 0),
+            blockedUntil: Math.max(0, Number(x.blockedUntil) || 0)
+        };
+    } catch {
+        return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    }
+}
+
+function saveRiskState(twinId, state) {
+    const key = riskKey(twinId);
+    if (!key) return;
+    try {
+        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
+        store[key] = {
+            score: Math.max(0, Math.min(100, Number(state.score) || 0)),
+            invalidAttempts: Math.max(0, Number(state.invalidAttempts) || 0),
+            blockedUntil: Number(state.blockedUntil) || 0
+        };
+        localStorage.setItem(RISK_STORAGE_KEY, JSON.stringify(store));
+    } catch {}
+}
+
+function clearExpiredRiskLock(twinId) {
+    const state = getRiskState(twinId);
+    if (state.blockedUntil && state.blockedUntil <= Date.now()) {
+        const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+        saveRiskState(twinId, reset);
+        return reset;
+    }
+    return state;
+}
+
+function addInvalidRisk(twinId) {
+    const old = clearExpiredRiskLock(twinId);
+    const invalidAttempts = old.invalidAttempts + 1;
+    const score = Math.min(RISK_MAX, invalidAttempts * RISK_STEP);
+    const blockedUntil = score >= RISK_MAX
+        ? Date.now() + BLOCK_SECONDS * 1000
+        : 0;
+    const next = { score, invalidAttempts, blockedUntil };
+    saveRiskState(twinId, next);
+    return next;
+}
+
+function resetRisk(twinId) {
+    const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    saveRiskState(twinId, reset);
+    return reset;
+}
+
+function getRiskLevel(score) {
+    if (score === null || score === undefined) return "UNKNOWN";
+    if (score >= 70) return "HIGH";
+    if (score >= 40) return "MEDIUM";
+    return "LOW";
+}
+
+/* =========================================================
    APP
    ========================================================= */
 
@@ -68,6 +146,68 @@ function App() {
     const [verification, setVerification] = useState(null);
 
     const [history, setHistory] = useState([]);
+
+    const [riskState, setRiskState] = useState({
+        score: 0,
+        invalidAttempts: 0,
+        blockedUntil: 0
+    });
+
+    const [blockSeconds, setBlockSeconds] = useState(0);
+
+    /* =====================================================
+       RISK MONITOR
+       ===================================================== */
+
+    useEffect(() => {
+        const id = riskKey(verifyTwinId);
+        if (!id) {
+            setRiskState({ score: 0, invalidAttempts: 0, blockedUntil: 0 });
+            setBlockSeconds(0);
+            return;
+        }
+
+        const tick = () => {
+            const state = clearExpiredRiskLock(id);
+            setRiskState(state);
+            setBlockSeconds(
+                state.blockedUntil > Date.now()
+                    ? Math.max(0, Math.ceil((state.blockedUntil - Date.now()) / 1000))
+                    : 0
+            );
+        };
+
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [verifyTwinId]);
+
+    /* =====================================================
+       OPEN VERIFY PAGE FROM QR CODE
+       ===================================================== */
+
+    useEffect(() => {
+
+        const params = new URLSearchParams(
+            window.location.search
+        );
+
+        const pageParam = params.get("page");
+        const twinIdParam = params.get("twinId");
+
+        if (pageParam === "verify") {
+
+            setPage("verify");
+            setVerification(null);
+            setMessage(null);
+
+            if (twinIdParam) {
+                setVerifyTwinId(twinIdParam);
+            }
+
+        }
+
+    }, []);
 
     /* =====================================================
        LOAD HISTORY
@@ -1169,6 +1309,22 @@ function App() {
                         file
                     );
 
+                /* ---------------------------------------------
+                   QR CODE FOR EXISTING TWIN
+                   --------------------------------------------- */
+
+                const qrText =
+                    `${window.location.origin}/?page=verify&twinId=${twinId}`;
+
+                const qr =
+                    await QRCode.toDataURL(
+                        qrText,
+                        {
+                            width: 260,
+                            margin: 2
+                        }
+                    );
+
                 const existingResult = {
 
                     twinId,
@@ -1184,6 +1340,8 @@ function App() {
 
                     documentType:
                         existingType,
+
+                    qr,
 
                     timestamp:
                         new Date(
@@ -1399,6 +1557,17 @@ function App() {
 
         }
 
+        const currentRisk = clearExpiredRiskLock(verifyTwinId.trim());
+        if (currentRisk.blockedUntil > Date.now()) {
+            setRiskState(currentRisk);
+            setBlockSeconds(Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000));
+            setMessage({
+                type: "error",
+                text: `Verification temporarily blocked. Try again in ${Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000)} seconds.`
+            });
+            return;
+        }
+
         if (
             CONTRACT_ADDRESS ===
             "PASTE_YOUR_DEPLOYED_CONTRACT_ADDRESS_HERE"
@@ -1487,6 +1656,10 @@ function App() {
 
             if (!timestamp) {
 
+                const nextRisk = addInvalidRisk(verifyTwinId.trim());
+                setRiskState(nextRisk);
+                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
+
                 const invalidResult = {
 
                     result:
@@ -1532,10 +1705,10 @@ function App() {
                         0,
 
                     riskScore:
-                        100,
+                        nextRisk.score,
 
                     riskLevel:
-                        "HIGH"
+                        getRiskLevel(nextRisk.score)
 
                 };
 
@@ -1588,6 +1761,10 @@ function App() {
 
             if (status === 3) {
 
+                const nextRisk = addInvalidRisk(verifyTwinId.trim());
+                setRiskState(nextRisk);
+                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
+
                 const revokedResult = {
 
                     result:
@@ -1632,10 +1809,10 @@ function App() {
                         0,
 
                     riskScore:
-                        100,
+                        nextRisk.score,
 
                     riskLevel:
-                        "HIGH"
+                        getRiskLevel(nextRisk.score)
 
                 };
 
@@ -1726,6 +1903,17 @@ function App() {
 
             const valid =
                 hashMatch;
+
+            const nextRisk = valid
+                ? resetRisk(verifyTwinId.trim())
+                : addInvalidRisk(verifyTwinId.trim());
+
+            setRiskState(nextRisk);
+            setBlockSeconds(
+                nextRisk.blockedUntil > Date.now()
+                    ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000)
+                    : 0
+            );
 
             const verificationResult = {
 
@@ -2246,6 +2434,8 @@ function App() {
                             verification={
                                 verification
                             }
+                            riskState={riskState}
+                            blockSeconds={blockSeconds}
                         />
 
                     )}
@@ -2821,7 +3011,9 @@ function Verify({
     message,
     loading,
     verifyDocument,
-    verification
+    verification,
+    riskState,
+    blockSeconds
 }) {
 
     return (
@@ -2918,13 +3110,23 @@ function Verify({
 
                 )}
 
+                {blockSeconds > 0 && (
+                    <div className="risk-lock-banner">
+                        <strong>Verification temporarily blocked</strong>
+                        <span>
+                            Risk score reached 100/100. Try again in {blockSeconds} seconds.
+                        </span>
+                    </div>
+                )}
+
                 <button
                     className="primary-button"
                     onClick={
                         verifyDocument
                     }
                     disabled={
-                        loading
+                        loading ||
+                        blockSeconds > 0
                     }
                 >
 
@@ -2934,6 +3136,35 @@ function Verify({
 
                 </button>
 
+            </div>
+
+            <div className="risk-monitor-card">
+                <div className="risk-monitor-top">
+                    <div>
+                        <span className="risk-monitor-label">Verification Risk</span>
+                        <strong>{riskState?.score ?? 0}/100</strong>
+                    </div>
+                    <span className={
+                        (riskState?.score ?? 0) >= 70
+                            ? "risk-badge high"
+                            : (riskState?.score ?? 0) >= 40
+                                ? "risk-badge medium"
+                                : "risk-badge low"
+                    }>
+                        {blockSeconds > 0 ? "BLOCKED" : getRiskLevel(riskState?.score ?? 0)}
+                    </span>
+                </div>
+                <div className="risk-monitor-bar">
+                    <span style={{ width: `${Math.min(100, riskState?.score ?? 0)}%` }} />
+                </div>
+                <div className="risk-monitor-footer">
+                    <span>Invalid attempts: {riskState?.invalidAttempts ?? 0}</span>
+                    <span>
+                        {blockSeconds > 0
+                            ? `Blocked for ${blockSeconds}s`
+                            : "Each invalid attempt: +25 risk"}
+                    </span>
+                </div>
             </div>
 
             {verification ? (
