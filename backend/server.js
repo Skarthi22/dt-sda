@@ -505,15 +505,18 @@ app.post(
 
 
             form.append(
-                "registered_hash",
-                req.body.registered_hash || ""
-            );
+    "registered_hash",
+    req.body.registered_hash ||
+    req.body.registeredHash ||
+    ""
+);
 
-
-            form.append(
-                "registered_phash",
-                req.body.registered_phash || ""
-            );
+form.append(
+    "registered_phash",
+    req.body.registered_phash ||
+    req.body.registeredPHash ||
+    ""
+);
 
 
             // ------------------------------------------------
