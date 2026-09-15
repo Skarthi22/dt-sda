@@ -1882,11 +1882,9 @@ function App() {
                 (hashMatch ? 100 : 0);
 
             const riskScore =
-                aiResult?.riskScore ??
-                (hashMatch ? 0 : 100);
+                nextRisk.score;
 
             const riskLevel =
-                aiResult?.riskLevel ||
                 getRiskLevel(
                     riskScore
                 );
