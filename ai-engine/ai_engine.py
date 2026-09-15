@@ -197,122 +197,104 @@ def calculate_risk(
     current_hash
 ):
 
-    risk = 0
+    similarity = similarity_result.get("similarity")
 
     reasons = []
 
     # -----------------------------------------------------
-    # SHA-256
+    # EXACT DOCUMENT
     # -----------------------------------------------------
+
+    hash_match = False
 
     if registered_hash and current_hash:
-
-        if (
-            current_hash.lower()
-            ==
+        hash_match = (
+            current_hash.lower() ==
             registered_hash.lower()
-        ):
-
-            risk += 0
-
-            reasons.append(
-                "SHA-256 hash matches registered document."
-            )
-
-        else:
-
-            risk += 70
-
-            reasons.append(
-                "SHA-256 hash does not match registered document."
-            )
+        )
 
     # -----------------------------------------------------
-    # VISUAL SIMILARITY
+    # RISK BASED PRIMARILY ON VISUAL SIMILARITY
+    #
+    # 100% similarity -> 0 risk
+    # 90% similarity  -> about 10 risk
+    # 85% similarity  -> about 15 risk
+    # 70% similarity  -> about 30 risk
+    # 50% similarity  -> about 50 risk
+    # 0% similarity   -> 100 risk
     # -----------------------------------------------------
-
-    similarity = similarity_result.get(
-        "similarity"
-    )
 
     if similarity is not None:
 
+        risk = round(100 - similarity)
+
+        if hash_match:
+            risk = 0
+            reasons.append(
+                "SHA-256 hash matches the registered document."
+            )
+        else:
+            reasons.append(
+                "SHA-256 hash differs from the registered document."
+            )
+
         if similarity >= 95:
-
-            risk += 0
-
             reasons.append(
                 "Very high visual similarity."
             )
-
-        elif similarity >= 85:
-
-            risk += 10
-
+        elif similarity >= 90:
             reasons.append(
-                "High visual similarity."
+                "High visual similarity with minor differences."
             )
-
+        elif similarity >= 80:
+            reasons.append(
+                "Good visual similarity with noticeable differences."
+            )
         elif similarity >= 70:
-
-            risk += 25
-
             reasons.append(
                 "Moderate visual similarity."
             )
-
         elif similarity >= 50:
-
-            risk += 45
-
             reasons.append(
-                "Low visual similarity."
+                "Low visual similarity; substantial differences detected."
             )
-
         else:
-
-            risk += 60
-
             reasons.append(
-                "Very low visual similarity."
+                "Very low visual similarity; major differences detected."
             )
-
-    # -----------------------------------------------------
-    # LIMIT
-    # -----------------------------------------------------
-
-    risk = max(
-        0,
-        min(
-            100,
-            risk
-        )
-    )
-
-    # -----------------------------------------------------
-    # LEVEL
-    # -----------------------------------------------------
-
-    if risk <= 20:
-
-        level = "LOW"
-
-    elif risk <= 50:
-
-        level = "MEDIUM"
 
     else:
 
+        # No visual comparison available.
+        # Do not pretend that a score was calculated.
+        if hash_match:
+            risk = 0
+            reasons.append(
+                "SHA-256 hash matches, but visual similarity is unavailable."
+            )
+        else:
+            risk = 100
+            reasons.append(
+                "Visual similarity is unavailable and the SHA-256 hash does not match."
+            )
+
+    risk = max(0, min(100, int(risk)))
+
+    # -----------------------------------------------------
+    # RISK LEVEL
+    # -----------------------------------------------------
+
+    if risk <= 20:
+        level = "LOW"
+    elif risk <= 50:
+        level = "MEDIUM"
+    else:
         level = "HIGH"
 
     return {
-
         "score": risk,
-
         "level": level,
-
         "reasons": reasons
-
     }
 
 
