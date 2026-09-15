@@ -11,9 +11,9 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const QRCode = require("qrcode");
+const FormData = require("form-data");
 
 const app = express();
-
 
 // ============================================================
 // CONFIGURATION
@@ -22,11 +22,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const AI_ENGINE_URL =
-    process.env.AI_ENGINE_URL || "http://127.0.0.1:5001";
+    process.env.AI_ENGINE_URL ||
+    "http://127.0.0.1:5001";
 
 const FRONTEND_URL =
-    process.env.FRONTEND_URL || "http://localhost:5173";
-
+    process.env.FRONTEND_URL ||
+    "http://localhost:5173";
 
 // ============================================================
 // MIDDLEWARE
@@ -39,17 +40,21 @@ app.use(
     })
 );
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(
+    express.json({
+        limit: "10mb"
+    })
+);
 
+app.use(
+    express.urlencoded({
+        extended: true
+    })
+);
 
 // ============================================================
 // UPLOAD CONFIGURATION
 // ============================================================
-//
-// Files are kept in memory only.
-// The actual document is NOT permanently stored by this server.
-//
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -69,9 +74,15 @@ const upload = multer({
         ];
 
         const extension =
-            path.extname(file.originalname).toLowerCase();
+            path.extname(
+                file.originalname
+            ).toLowerCase();
 
-        if (!allowedExtensions.includes(extension)) {
+        if (
+            !allowedExtensions.includes(
+                extension
+            )
+        ) {
             return cb(
                 new Error(
                     "Unsupported file type. Use JPG, PNG, PDF or DOCX."
@@ -83,23 +94,30 @@ const upload = multer({
     }
 });
 
-
 // ============================================================
 // DATA DIRECTORY
 // ============================================================
 
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR =
+    path.join(
+        __dirname,
+        "data"
+    );
 
 if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, {
-        recursive: true
-    });
+    fs.mkdirSync(
+        DATA_DIR,
+        {
+            recursive: true
+        }
+    );
 }
 
-
 const DOCUMENTS_FILE =
-    path.join(DATA_DIR, "registered_documents.json");
-
+    path.join(
+        DATA_DIR,
+        "registered_documents.json"
+    );
 
 // ============================================================
 // DATABASE HELPERS
@@ -109,7 +127,11 @@ function readDocuments() {
 
     try {
 
-        if (!fs.existsSync(DOCUMENTS_FILE)) {
+        if (
+            !fs.existsSync(
+                DOCUMENTS_FILE
+            )
+        ) {
             return [];
         }
 
@@ -164,7 +186,6 @@ function writeDocuments(documents) {
     }
 }
 
-
 // ============================================================
 // SHA-256
 // ============================================================
@@ -177,7 +198,6 @@ function calculateSHA256(buffer) {
         .digest("hex");
 }
 
-
 // ============================================================
 // DOCUMENT TYPE
 // ============================================================
@@ -185,8 +205,9 @@ function calculateSHA256(buffer) {
 function getDocumentType(filename) {
 
     const extension =
-        path.extname(filename)
-            .toLowerCase();
+        path.extname(
+            filename
+        ).toLowerCase();
 
     if (
         extension === ".jpg" ||
@@ -207,7 +228,6 @@ function getDocumentType(filename) {
     return "unknown";
 }
 
-
 // ============================================================
 // AI ENGINE STATUS
 // ============================================================
@@ -220,7 +240,7 @@ async function checkAIEngine() {
             await axios.get(
                 `${AI_ENGINE_URL}/health`,
                 {
-                    timeout: 3000
+                    timeout: 5000
                 }
             );
 
@@ -242,6 +262,11 @@ async function checkAIEngine() {
 
     } catch (error) {
 
+        console.error(
+            "AI Engine check failed:",
+            error.message
+        );
+
         return {
             online: false,
             status: "offline"
@@ -249,122 +274,154 @@ async function checkAIEngine() {
     }
 }
 
-
 // ============================================================
 // ROOT
 // ============================================================
 
-app.get("/", (req, res) => {
+app.get(
+    "/",
+    (req, res) => {
 
-    res.json({
-        success: true,
-        application: "DT-SDA",
-        description:
-            "Digital Twin Secure Document Authentication",
-        server: "online",
-        port: PORT,
-        aiEngine: AI_ENGINE_URL
-    });
-});
+        res.json({
 
+            success: true,
+
+            application:
+                "DT-SDA",
+
+            description:
+                "Digital Twin Secure Document Authentication",
+
+            server:
+                "online",
+
+            port:
+                PORT,
+
+            aiEngine:
+                AI_ENGINE_URL
+        });
+    }
+);
 
 // ============================================================
 // SERVER HEALTH
 // ============================================================
 
-app.get("/api/health", async (req, res) => {
+app.get(
+    "/api/health",
+    async (req, res) => {
 
-    const ai =
-        await checkAIEngine();
+        const ai =
+            await checkAIEngine();
 
-    res.json({
+        res.json({
 
-        success: true,
+            success: true,
 
-        server: {
-            status: "online",
-            port: PORT
-        },
+            server: {
+                status: "online",
+                port: PORT
+            },
 
-        aiEngine: ai
-    });
-});
-
-
-// ============================================================
-// AI ENGINE STATUS
-// ============================================================
-
-app.get("/api/ai/status", async (req, res) => {
-
-    const ai =
-        await checkAIEngine();
-
-    res.json({
-
-        success: true,
-
-        online: ai.online,
-
-        status: ai.status,
-
-        url: AI_ENGINE_URL
-    });
-});
-
+            aiEngine: ai
+        });
+    }
+);
 
 // ============================================================
-// GET NEXT DOCUMENT ID
+// AI STATUS
 // ============================================================
 
-app.get("/api/documents/next-id", (req, res) => {
+app.get(
+    "/api/ai/status",
+    async (req, res) => {
 
-    const documents =
-        readDocuments();
+        const ai =
+            await checkAIEngine();
 
-    let highestNumber = 0;
+        res.json({
 
-    documents.forEach((document) => {
+            success: true,
 
-        const match =
-            String(document.documentId)
-                .match(/^D(\d+)$/i);
+            online:
+                ai.online,
 
-        if (match) {
+            status:
+                ai.status,
 
-            const number =
-                parseInt(
-                    match[1],
-                    10
-                );
+            url:
+                AI_ENGINE_URL
+        });
+    }
+);
 
-            if (number > highestNumber) {
-                highestNumber = number;
+// ============================================================
+// NEXT DOCUMENT ID
+// ============================================================
+
+app.get(
+    "/api/documents/next-id",
+    (req, res) => {
+
+        const documents =
+            readDocuments();
+
+        let highestNumber = 0;
+
+        documents.forEach(
+            (document) => {
+
+                const match =
+                    String(
+                        document.documentId
+                    ).match(
+                        /^D(\d+)$/i
+                    );
+
+                if (match) {
+
+                    const number =
+                        parseInt(
+                            match[1],
+                            10
+                        );
+
+                    if (
+                        number >
+                        highestNumber
+                    ) {
+                        highestNumber =
+                            number;
+                    }
+                }
             }
-        }
-    });
+        );
 
-    const nextNumber =
-        highestNumber + 1;
+        const nextNumber =
+            highestNumber + 1;
 
-    const documentId =
-        "D" +
-        String(nextNumber)
-            .padStart(4, "0");
+        const documentId =
+            "D" +
+            String(
+                nextNumber
+            ).padStart(
+                4,
+                "0"
+            );
 
-    res.json({
-        success: true,
-        documentId
-    });
-});
+        res.json({
 
+            success: true,
+
+            documentId
+        });
+    }
+);
 
 // ============================================================
-// CALCULATE HASH
+// CALCULATE DOCUMENT HASH
 // ============================================================
-//
-// Used when the frontend wants the SHA-256 before registration.
-//
 
 app.post(
     "/api/documents/hash",
@@ -375,10 +432,14 @@ app.post(
 
             if (!req.file) {
 
-                return res.status(400).json({
-                    success: false,
-                    error: "No document uploaded."
-                });
+                return res.status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "No document uploaded."
+                    });
             }
 
             const hash =
@@ -412,35 +473,35 @@ app.post(
                 error
             );
 
-            res.status(500).json({
+            res.status(500)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    "Unable to calculate document hash."
-            });
+                    error:
+                        "Unable to calculate document hash."
+                });
         }
     }
 );
-
 
 // ============================================================
 // AI DOCUMENT ANALYSIS
 // ============================================================
 //
-// Frontend sends:
+// IMPORTANT FIX:
 //
-// file
+// Frontend may send:
+//
+// registeredHash
+// registeredPHash
+//
+// Older code expected:
+//
 // registered_hash
 // registered_phash
 //
-// Python AI Engine returns:
-//
-// SHA-256
-// pHash
-// similarity
-// risk score
-// risk level
+// This version accepts BOTH.
 //
 
 app.post(
@@ -450,46 +511,114 @@ app.post(
 
         try {
 
+            // ------------------------------------------------
+            // FILE CHECK
+            // ------------------------------------------------
+
             if (!req.file) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "No document uploaded."
-                });
+                        error:
+                            "No document uploaded."
+                    });
             }
 
+            // ------------------------------------------------
+            // AI STATUS
+            // ------------------------------------------------
 
             const ai =
                 await checkAIEngine();
 
-
             if (!ai.online) {
 
-                return res.status(503).json({
+                return res.status(503)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    aiStatus: "offline",
+                        aiStatus:
+                            "offline",
 
-                    error:
-                        "AI Engine is offline. Start ai_engine.py on port 5001."
-                });
+                        error:
+                            "AI Engine is offline."
+                    });
             }
 
+            // ------------------------------------------------
+            // GET REGISTERED HASH
+            // ------------------------------------------------
+
+            const registeredHash =
+                String(
+                    req.body.registered_hash ??
+                    req.body.registeredHash ??
+                    ""
+                ).trim();
 
             // ------------------------------------------------
-            // Prepare multipart request
+            // GET REGISTERED PHASH
             // ------------------------------------------------
 
-            const FormData =
-                require("form-data");
+            const registeredPHash =
+                String(
+                    req.body.registered_phash ??
+                    req.body.registeredPHash ??
+                    ""
+                ).trim();
+
+            // ------------------------------------------------
+            // DEBUG INFORMATION
+            // ------------------------------------------------
+
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                "AI ANALYSIS REQUEST"
+            );
+
+            console.log(
+                "Filename:",
+                req.file.originalname
+            );
+
+            console.log(
+                "Registered SHA256:",
+                registeredHash
+                    ? "RECEIVED"
+                    : "EMPTY"
+            );
+
+            console.log(
+                "Registered pHash:",
+                registeredPHash
+                    ? "RECEIVED"
+                    : "EMPTY"
+            );
+
+            console.log(
+                "AI Engine:",
+                AI_ENGINE_URL
+            );
+
+            console.log(
+                "========================================"
+            );
+
+            // ------------------------------------------------
+            // CREATE MULTIPART FORM
+            // ------------------------------------------------
 
             const form =
                 new FormData();
 
+            // FILE
 
             form.append(
                 "file",
@@ -503,24 +632,22 @@ app.post(
                 }
             );
 
+            // REGISTERED SHA256
 
             form.append(
-    "registered_hash",
-    req.body.registered_hash ||
-    req.body.registeredHash ||
-    ""
-);
+                "registered_hash",
+                registeredHash
+            );
 
-form.append(
-    "registered_phash",
-    req.body.registered_phash ||
-    req.body.registeredPHash ||
-    ""
-);
+            // REGISTERED PHASH
 
+            form.append(
+                "registered_phash",
+                registeredPHash
+            );
 
             // ------------------------------------------------
-            // Send to Python AI Engine
+            // SEND TO PYTHON AI ENGINE
             // ------------------------------------------------
 
             const response =
@@ -542,16 +669,42 @@ form.append(
                     }
                 );
 
-
             const result =
                 response.data;
 
+            // ------------------------------------------------
+            // LOG AI RESULT
+            // ------------------------------------------------
+
+            console.log(
+                "AI RESULT:"
+            );
+
+            console.log(
+                "Similarity:",
+                result.similarity
+            );
+
+            console.log(
+                "pHash distance:",
+                result.phashDistance
+            );
+
+            console.log(
+                "Risk:",
+                result.riskScore
+            );
+
+            console.log(
+                "Risk level:",
+                result.riskLevel
+            );
 
             // ------------------------------------------------
-            // Return clean response to frontend
+            // RETURN RESULT
             // ------------------------------------------------
 
-            res.json({
+            return res.json({
 
                 success:
                     result.success !== false,
@@ -564,19 +717,24 @@ form.append(
                     req.file.originalname,
 
                 sha256:
-                    result.sha256 || "",
+                    result.sha256 ||
+                    "",
 
                 registeredHash:
-                    result.registeredHash || "",
+                    result.registeredHash ||
+                    registeredHash,
 
                 hashMatch:
                     result.hashMatch === true,
 
                 phash:
-                    result.phash || null,
+                    result.phash ||
+                    null,
 
                 registeredPhash:
-                    result.registeredPhash || null,
+                    result.registeredPhash ||
+                    registeredPHash ||
+                    null,
 
                 similarityAvailable:
                     result.similarityAvailable === true,
@@ -594,10 +752,11 @@ form.append(
                 riskScore:
                     result.riskScore !== undefined
                         ? result.riskScore
-                        : 0,
+                        : null,
 
                 riskLevel:
-                    result.riskLevel || "UNKNOWN",
+                    result.riskLevel ||
+                    "UNKNOWN",
 
                 riskReasons:
                     Array.isArray(
@@ -610,47 +769,59 @@ form.append(
         } catch (error) {
 
             console.error(
-                "AI analysis error:"
+                "========================================"
             );
 
-            if (error.response) {
+            console.error(
+                "AI ANALYSIS ERROR"
+            );
+
+            console.error(
+                error.message
+            );
+
+            if (
+                error.response
+            ) {
 
                 console.error(
+                    "AI RESPONSE:",
                     error.response.data
-                );
-
-            } else {
-
-                console.error(
-                    error.message
                 );
             }
 
+            console.error(
+                "========================================"
+            );
 
-            res.status(500).json({
+            return res.status(500)
+                .json({
 
-                success: false,
+                    success: false,
 
-                aiStatus: "error",
+                    aiStatus:
+                        "error",
 
-                error:
-                    error.response?.data?.error ||
-                    error.message ||
-                    "AI analysis failed."
-            });
+                    error:
+                        error.response?.data?.error ||
+                        error.message ||
+                        "AI analysis failed."
+                });
         }
     }
 );
-
 
 // ============================================================
 // VERIFY DOCUMENT
 // ============================================================
 //
-// This endpoint is useful for the Verify page.
+// This also accepts both:
 //
-// User uploads a document and supplies the registered
-// SHA-256 and optional registered pHash.
+// registered_hash
+// registeredHash
+//
+// registered_phash
+// registeredPHash
 //
 
 app.post(
@@ -662,61 +833,71 @@ app.post(
 
             if (!req.file) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "No document uploaded."
-                });
+                        error:
+                            "No document uploaded."
+                    });
             }
 
+            // ------------------------------------------------
+            // SUBMITTED HASH
+            // ------------------------------------------------
 
             const submittedHash =
                 calculateSHA256(
                     req.file.buffer
                 );
 
+            // ------------------------------------------------
+            // REGISTERED HASH
+            // ------------------------------------------------
 
             const registeredHash =
                 String(
-                    req.body.registered_hash || ""
+                    req.body.registered_hash ??
+                    req.body.registeredHash ??
+                    ""
                 ).trim();
 
+            // ------------------------------------------------
+            // REGISTERED PHASH
+            // ------------------------------------------------
 
             const registeredPhash =
                 String(
-                    req.body.registered_phash || ""
+                    req.body.registered_phash ??
+                    req.body.registeredPHash ??
+                    ""
                 ).trim();
 
+            // ------------------------------------------------
+            // EXACT HASH MATCH
+            // ------------------------------------------------
 
             const hashMatch =
                 registeredHash !== "" &&
                 submittedHash.toLowerCase() ===
                 registeredHash.toLowerCase();
 
-
             // ------------------------------------------------
-            // AI analysis
+            // AI RESULT
             // ------------------------------------------------
 
             let aiResult = null;
 
-
             const ai =
                 await checkAIEngine();
-
 
             if (ai.online) {
 
                 try {
 
-                    const FormData =
-                        require("form-data");
-
                     const form =
                         new FormData();
-
 
                     form.append(
                         "file",
@@ -730,18 +911,15 @@ app.post(
                         }
                     );
 
-
                     form.append(
                         "registered_hash",
                         registeredHash
                     );
 
-
                     form.append(
                         "registered_phash",
                         registeredPhash
                     );
-
 
                     const aiResponse =
                         await axios.post(
@@ -762,7 +940,6 @@ app.post(
                             }
                         );
 
-
                     aiResult =
                         aiResponse.data;
 
@@ -775,25 +952,18 @@ app.post(
                 }
             }
 
+            // ------------------------------------------------
+            // VERIFICATION STATUS
+            // ------------------------------------------------
+
+            const verificationStatus =
+                hashMatch
+                    ? "VALID"
+                    : "INVALID";
 
             // ------------------------------------------------
-            // Final verification result
+            // RESPONSE
             // ------------------------------------------------
-
-            let verificationStatus;
-
-
-            if (hashMatch) {
-
-                verificationStatus =
-                    "VALID";
-
-            } else {
-
-                verificationStatus =
-                    "INVALID";
-            }
-
 
             res.json({
 
@@ -836,6 +1006,14 @@ app.post(
                     aiResult?.phash ??
                     null,
 
+                registeredPhash:
+                    aiResult?.registeredPhash ??
+                    registeredPhash,
+
+                phashDistance:
+                    aiResult?.phashDistance ??
+                    null,
+
                 riskScore:
                     aiResult?.riskScore ??
                     null,
@@ -856,27 +1034,22 @@ app.post(
                 error
             );
 
-            res.status(500).json({
+            res.status(500)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    error.message ||
-                    "Verification failed."
-            });
+                    error:
+                        error.message ||
+                        "Verification failed."
+                });
         }
     }
 );
 
-
 // ============================================================
 // SAVE REGISTERED DOCUMENT METADATA
 // ============================================================
-//
-// IMPORTANT:
-// The actual document is NOT saved.
-// Only metadata/hash information is stored.
-//
 
 app.post(
     "/api/documents",
@@ -885,82 +1058,66 @@ app.post(
         try {
 
             const {
-
                 documentId,
-
                 issuerId,
-
                 twinId,
-
                 contentHash,
-
                 perceptualHash,
-
                 ipfsCid,
-
                 transactionHash,
-
                 documentType,
-
                 riskScore,
-
                 riskLevel
-
             } = req.body;
-
 
             if (!documentId) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "Document ID is required."
-                });
+                        error:
+                            "Document ID is required."
+                    });
             }
-
 
             if (!contentHash) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "Content hash is required."
-                });
+                        error:
+                            "Content hash is required."
+                    });
             }
-
 
             const documents =
                 readDocuments();
 
-
-            // Prevent duplicate document ID
-
             const existing =
                 documents.find(
-                    (item) =>
+                    item =>
                         item.documentId ===
                         documentId
                 );
 
-
             if (existing) {
 
-                return res.status(409).json({
+                return res.status(409)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "Document already exists.",
+                        error:
+                            "Document already exists.",
 
-                    document:
-                        existing
-                });
+                        document:
+                            existing
+                    });
             }
-
 
             const record = {
 
@@ -984,38 +1141,44 @@ app.post(
                     transactionHash || "",
 
                 documentType:
-                    documentType || "unknown",
+                    documentType ||
+                    "unknown",
 
                 riskScore:
-                    riskScore ?? null,
+                    riskScore ??
+                    null,
 
                 riskLevel:
-                    riskLevel || null,
+                    riskLevel ||
+                    null,
 
                 status:
                     "ACTIVE",
 
                 timestamp:
-                    new Date().toISOString()
+                    new Date()
+                        .toISOString()
             };
 
+            documents.push(
+                record
+            );
 
-            documents.push(record);
+            writeDocuments(
+                documents
+            );
 
+            res.status(201)
+                .json({
 
-            writeDocuments(documents);
+                    success: true,
 
+                    message:
+                        "Document metadata saved.",
 
-            res.status(201).json({
-
-                success: true,
-
-                message:
-                    "Document metadata saved.",
-
-                document:
-                    record
-            });
+                    document:
+                        record
+                });
 
         } catch (error) {
 
@@ -1024,20 +1187,20 @@ app.post(
                 error
             );
 
-            res.status(500).json({
+            res.status(500)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    "Unable to save document metadata."
-            });
+                    error:
+                        "Unable to save document metadata."
+                });
         }
     }
 );
 
-
 // ============================================================
-// GET ALL DOCUMENTS / HISTORY
+// GET ALL DOCUMENTS
 // ============================================================
 
 app.get(
@@ -1055,11 +1218,10 @@ app.get(
                 documents.length,
 
             documents:
-                documents.reverse()
+                [...documents].reverse()
         });
     }
 );
-
 
 // ============================================================
 // GET HISTORY
@@ -1075,39 +1237,43 @@ app.get(
         const history =
             [...documents]
                 .reverse()
-                .map((document) => ({
+                .map(
+                    document => ({
 
-                    documentId:
-                        document.documentId,
+                        documentId:
+                            document.documentId,
 
-                    twinId:
-                        document.twinId,
+                        twinId:
+                            document.twinId,
 
-                    issuerId:
-                        document.issuerId,
+                        issuerId:
+                            document.issuerId,
 
-                    contentHash:
-                        document.contentHash,
+                        contentHash:
+                            document.contentHash,
 
-                    documentType:
-                        document.documentType,
+                        perceptualHash:
+                            document.perceptualHash,
 
-                    transactionHash:
-                        document.transactionHash,
+                        documentType:
+                            document.documentType,
 
-                    status:
-                        document.status,
+                        transactionHash:
+                            document.transactionHash,
 
-                    riskScore:
-                        document.riskScore,
+                        status:
+                            document.status,
 
-                    riskLevel:
-                        document.riskLevel,
+                        riskScore:
+                            document.riskScore,
 
-                    timestamp:
-                        document.timestamp
-                }));
+                        riskLevel:
+                            document.riskLevel,
 
+                        timestamp:
+                            document.timestamp
+                    })
+                );
 
         res.json({
 
@@ -1117,7 +1283,6 @@ app.get(
         });
     }
 );
-
 
 // ============================================================
 // GET SINGLE DOCUMENT
@@ -1130,26 +1295,28 @@ app.get(
         const documents =
             readDocuments();
 
-
         const document =
             documents.find(
-                (item) =>
-                    item.documentId.toLowerCase() ===
-                    req.params.documentId.toLowerCase()
+                item =>
+                    String(
+                        item.documentId
+                    ).toLowerCase() ===
+                    String(
+                        req.params.documentId
+                    ).toLowerCase()
             );
-
 
         if (!document) {
 
-            return res.status(404).json({
+            return res.status(404)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    "Document not found."
-            });
+                    error:
+                        "Document not found."
+                });
         }
-
 
         res.json({
 
@@ -1160,14 +1327,9 @@ app.get(
     }
 );
 
-
 // ============================================================
 // UPDATE BLOCKCHAIN INFORMATION
 // ============================================================
-//
-// Useful after MetaMask successfully completes
-// registerTwin() in the smart contract.
-//
 
 app.patch(
     "/api/documents/:documentId/blockchain",
@@ -1176,70 +1338,75 @@ app.patch(
         const documents =
             readDocuments();
 
-
         const index =
             documents.findIndex(
-                (item) =>
-                    item.documentId.toLowerCase() ===
-                    req.params.documentId.toLowerCase()
+                item =>
+                    String(
+                        item.documentId
+                    ).toLowerCase() ===
+                    String(
+                        req.params.documentId
+                    ).toLowerCase()
             );
-
 
         if (index === -1) {
 
-            return res.status(404).json({
+            return res.status(404)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    "Document not found."
-            });
+                    error:
+                        "Document not found."
+                });
         }
 
-
         const {
-
             twinId,
-
             transactionHash,
-
             ipfsCid,
-
             perceptualHash
-
         } = req.body;
 
-
-        if (twinId !== undefined) {
+        if (
+            twinId !== undefined
+        ) {
             documents[index].twinId =
                 twinId;
         }
 
-
-        if (transactionHash !== undefined) {
-            documents[index].transactionHash =
+        if (
+            transactionHash !==
+            undefined
+        ) {
+            documents[index]
+                .transactionHash =
                 transactionHash;
         }
 
-
-        if (ipfsCid !== undefined) {
+        if (
+            ipfsCid !== undefined
+        ) {
             documents[index].ipfsCid =
                 ipfsCid;
         }
 
-
-        if (perceptualHash !== undefined) {
-            documents[index].perceptualHash =
+        if (
+            perceptualHash !==
+            undefined
+        ) {
+            documents[index]
+                .perceptualHash =
                 perceptualHash;
         }
 
-
         documents[index].updatedAt =
-            new Date().toISOString();
+            new Date()
+                .toISOString();
 
-
-        writeDocuments(documents);
-
+        writeDocuments(
+            documents
+        );
 
         res.json({
 
@@ -1251,15 +1418,15 @@ app.patch(
     }
 );
 
-
 // ============================================================
 // QR CODE
 // ============================================================
 //
-// Generates a QR code containing the verification URL.
+// This backend QR endpoint uses hash routing so Render
+// does not lose the verification route.
 //
-// Example:
-// http://localhost:5173/verify?document=D0001&twin=...
+// Result:
+// https://frontend.onrender.com/#/verify?twinId=XXXX
 //
 
 app.get(
@@ -1269,44 +1436,38 @@ app.get(
         try {
 
             const {
-
                 documentId,
                 twinId,
                 hash
-
             } = req.query;
-
 
             if (!documentId) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
 
-                    success: false,
+                        success: false,
 
-                    error:
-                        "Document ID is required."
-                });
+                        error:
+                            "Document ID is required."
+                    });
             }
-
 
             const params =
                 new URLSearchParams();
 
-
             params.set(
-                "document",
-                documentId
+                "twinId",
+                twinId || ""
             );
 
-
-            if (twinId) {
+            if (documentId) {
 
                 params.set(
-                    "twin",
-                    twinId
+                    "documentId",
+                    documentId
                 );
             }
-
 
             if (hash) {
 
@@ -1316,26 +1477,28 @@ app.get(
                 );
             }
 
-
             const verificationURL =
-                `${FRONTEND_URL}/verify?${params.toString()}`;
-
+                `${FRONTEND_URL}/#/verify?${params.toString()}`;
 
             const qrDataURL =
                 await QRCode.toDataURL(
                     verificationURL,
                     {
                         width: 300,
-                        margin: 2
+                        margin: 2,
+                        errorCorrectionLevel:
+                            "H"
                     }
                 );
-
 
             res.json({
 
                 success: true,
 
                 documentId,
+
+                twinId:
+                    twinId || "",
 
                 verificationURL,
 
@@ -1350,33 +1513,38 @@ app.get(
                 error
             );
 
-            res.status(500).json({
+            res.status(500)
+                .json({
 
-                success: false,
+                    success: false,
 
-                error:
-                    "Unable to generate QR code."
-            });
+                    error:
+                        "Unable to generate QR code."
+                });
         }
     }
 );
-
 
 // ============================================================
 // ERROR HANDLER
 // ============================================================
 
 app.use(
-    (error, req, res, next) => {
+    (
+        error,
+        req,
+        res,
+        next
+    ) => {
 
         console.error(
             "SERVER ERROR:",
             error
         );
 
-
         if (
-            error instanceof multer.MulterError
+            error instanceof
+            multer.MulterError
         ) {
 
             if (
@@ -1384,48 +1552,48 @@ app.use(
                 "LIMIT_FILE_SIZE"
             ) {
 
-                return res.status(400).json({
+                return res.status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "File is too large. Maximum size is 20 MB."
+                    });
+            }
+
+            return res.status(400)
+                .json({
 
                     success: false,
 
                     error:
-                        "File is too large. Maximum size is 20 MB."
+                        error.message
                 });
-            }
-
-
-            return res.status(400).json({
-
-                success: false,
-
-                error:
-                    error.message
-            });
         }
-
 
         if (error.message) {
 
-            return res.status(400).json({
+            return res.status(400)
+                .json({
+
+                    success: false,
+
+                    error:
+                        error.message
+                });
+        }
+
+        res.status(500)
+            .json({
 
                 success: false,
 
                 error:
-                    error.message
+                    "Internal server error."
             });
-        }
-
-
-        res.status(500).json({
-
-            success: false,
-
-            error:
-                "Internal server error."
-        });
     }
 );
-
 
 // ============================================================
 // START SERVER
@@ -1438,27 +1606,26 @@ app.listen(
         const ai =
             await checkAIEngine();
 
-
         console.log("");
         console.log(
             "========================================"
         );
         console.log(
-            "          DT-SDA SERVER"
+            "           DT-SDA SERVER"
         );
         console.log(
             "========================================"
         );
 
         console.log(
-            `Server: http://localhost:${PORT}`
+            `Port: ${PORT}`
         );
 
         console.log(
             `AI Engine: ${
                 ai.online
                     ? "ONLINE"
-                    : "NOT FOUND"
+                    : "OFFLINE"
             }`
         );
 
