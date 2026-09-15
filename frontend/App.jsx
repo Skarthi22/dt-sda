@@ -31,7 +31,7 @@ const CONTRACT_ABI = [
 
     "function registerTwin(bytes32 twinId,string documentId,string contentHash,string perceptualHash,string ipfsCid)",
 
-    "function getTwin(bytes32 twinId) view returns (string documentId,string contentHash,string perceptualHash,string ipfsCid,address issuer,uint256 timestamp,uint8 status)",
+    "function twins(bytes32 twinId) view returns (string documentId,string contentHash,string perceptualHash,string ipfsCid,address issuer,uint256 timestamp,uint8 status)",
 
     "function revokeTwin(bytes32 twinId)",
 
@@ -39,674 +39,109 @@ const CONTRACT_ABI = [
 ];
 
 /* =========================================================
-   RISK CONFIGURATION
+   VERIFICATION RISK
    ========================================================= */
 
-const RISK_STORAGE_KEY =
-  "dtsda_verification_risk_v2";
-
-const HISTORY_KEY =
-  "dtsda_history";
-
+const RISK_STORAGE_KEY = "dtsda_verification_risk_v2";
 const RISK_STEP = 25;
 const RISK_MAX = 100;
 const BLOCK_SECONDS = 60;
 
-/* =========================================================
-   RISK STORAGE
-   ========================================================= */
-
 function riskKey(twinId) {
-  return String(twinId || "")
-    .trim()
-    .toLowerCase();
+    return String(twinId || "").trim().toLowerCase();
 }
 
 function getRiskState(twinId) {
-  const key = riskKey(twinId);
-
-  if (!key) {
-    return {
-      score: 0,
-      invalidAttempts: 0,
-      blockedUntil: 0
-    };
-  }
-
-  try {
-    const store =
-      JSON.parse(
-        localStorage.getItem(
-          RISK_STORAGE_KEY
-        ) || "{}"
-      );
-
-    const x = store[key] || {};
-
-    return {
-      score: Math.max(
-        0,
-        Math.min(
-          100,
-          Number(x.score) || 0
-        )
-      ),
-
-      invalidAttempts:
-        Math.max(
-          0,
-          Number(
-            x.invalidAttempts
-          ) || 0
-        ),
-
-      blockedUntil:
-        Math.max(
-          0,
-          Number(
-            x.blockedUntil
-          ) || 0
-        )
-    };
-  } catch {
-    return {
-      score: 0,
-      invalidAttempts: 0,
-      blockedUntil: 0
-    };
-  }
+    const key = riskKey(twinId);
+    if (!key) return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    try {
+        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
+        const x = store[key] || {};
+        return {
+            score: Math.max(0, Math.min(100, Number(x.score) || 0)),
+            invalidAttempts: Math.max(0, Number(x.invalidAttempts) || 0),
+            blockedUntil: Math.max(0, Number(x.blockedUntil) || 0)
+        };
+    } catch {
+        return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    }
 }
 
-function saveRiskState(
-  twinId,
-  state
-) {
-  const key = riskKey(twinId);
-
-  if (!key) return;
-
-  try {
-    const store =
-      JSON.parse(
-        localStorage.getItem(
-          RISK_STORAGE_KEY
-        ) || "{}"
-      );
-
-    store[key] = {
-      score: Math.max(
-        0,
-        Math.min(
-          100,
-          Number(state.score) || 0
-        )
-      ),
-
-      invalidAttempts:
-        Math.max(
-          0,
-          Number(
-            state.invalidAttempts
-          ) || 0
-        ),
-
-      blockedUntil:
-        Number(
-          state.blockedUntil
-        ) || 0
-    };
-
-    localStorage.setItem(
-      RISK_STORAGE_KEY,
-      JSON.stringify(store)
-    );
-  } catch {}
+function saveRiskState(twinId, state) {
+    const key = riskKey(twinId);
+    if (!key) return;
+    try {
+        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
+        store[key] = {
+            score: Math.max(0, Math.min(100, Number(state.score) || 0)),
+            invalidAttempts: Math.max(0, Number(state.invalidAttempts) || 0),
+            blockedUntil: Number(state.blockedUntil) || 0
+        };
+        localStorage.setItem(RISK_STORAGE_KEY, JSON.stringify(store));
+    } catch {}
 }
 
-function clearExpiredRiskLock(
-  twinId
-) {
-  const s =
-    getRiskState(twinId);
+function clearExpiredRiskLock(twinId) {
+    const state = getRiskState(twinId);
+    if (state.blockedUntil && state.blockedUntil <= Date.now()) {
+        const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+        saveRiskState(twinId, reset);
+        return reset;
+    }
+    return state;
+}
 
-  if (
-    s.blockedUntil &&
-    s.blockedUntil <= Date.now()
-  ) {
-    const reset = {
-      score: 0,
-      invalidAttempts: 0,
-      blockedUntil: 0
-    };
+function addInvalidRisk(twinId) {
+    const old = clearExpiredRiskLock(twinId);
+    const invalidAttempts = old.invalidAttempts + 1;
+    const score = Math.min(RISK_MAX, invalidAttempts * RISK_STEP);
+    const blockedUntil = score >= RISK_MAX
+        ? Date.now() + BLOCK_SECONDS * 1000
+        : 0;
+    const next = { score, invalidAttempts, blockedUntil };
+    saveRiskState(twinId, next);
+    return next;
+}
 
-    saveRiskState(
-      twinId,
-      reset
-    );
-
+function resetRisk(twinId) {
+    const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
+    saveRiskState(twinId, reset);
     return reset;
-  }
-
-  return s;
 }
 
-function addInvalidRisk(
-  twinId
-) {
-  const old =
-    clearExpiredRiskLock(
-      twinId
-    );
+async function validateSepoliaContract(provider) {
 
-  const score =
-    Math.min(
-      RISK_MAX,
-      old.score + RISK_STEP
-    );
+    if (!provider) {
+        throw new Error("Blockchain provider is not available.");
+    }
 
-  const next = {
-    score,
+    const networkInfo = await provider.getNetwork();
 
-    invalidAttempts:
-      old.invalidAttempts + 1,
+    if (Number(networkInfo.chainId) !== SEPOLIA_CHAIN_ID) {
+        throw new Error("The blockchain RPC is not connected to Ethereum Sepolia.");
+    }
 
-    blockedUntil:
-      score >= RISK_MAX
-        ? Date.now() +
-          BLOCK_SECONDS * 1000
-        : 0
-  };
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+        throw new Error("VITE_CONTRACT_ADDRESS is not a valid Ethereum address.");
+    }
 
-  saveRiskState(
-    twinId,
-    next
-  );
+    const code = await provider.getCode(CONTRACT_ADDRESS);
 
-  return next;
-}
-
-
-/* =========================================================
-   LOCAL IMAGE HASHING
-   ========================================================= */
-
-function imageToCanvas(
-  file,
-  size = 32
-) {
-  return new Promise(
-    (resolve, reject) => {
-      const url =
-        URL.createObjectURL(file);
-
-      const img =
-        new Image();
-
-      img.onload = () => {
-        try {
-          const canvas =
-            document.createElement(
-              "canvas"
-            );
-
-          canvas.width = size;
-          canvas.height = size;
-
-          const ctx =
-            canvas.getContext(
-              "2d",
-              {
-                willReadFrequently:
-                  true
-              }
-            );
-
-          ctx.drawImage(
-            img,
-            0,
-            0,
-            size,
-            size
-          );
-
-          URL.revokeObjectURL(
-            url
-          );
-
-          resolve(
-            ctx.getImageData(
-              0,
-              0,
-              size,
-              size
-            )
-          );
-        } catch (e) {
-          URL.revokeObjectURL(
-            url
-          );
-
-          reject(e);
-        }
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(
-          url
+    if (!code || code === "0x") {
+        throw new Error(
+            "No smart contract was found at VITE_CONTRACT_ADDRESS on Sepolia. Check the contract address and redeploy the frontend after updating the Render environment variable."
         );
-
-        reject(
-          new Error(
-            "Unable to read image."
-          )
-        );
-      };
-
-      img.src = url;
     }
-  );
+
+    return true;
 }
 
-function grayscalePixels(
-  imageData
-) {
-  const out =
-    new Float64Array(
-      imageData.width *
-        imageData.height
-    );
-
-  for (
-    let i = 0, p = 0;
-    i <
-    imageData.data.length;
-    i += 4, p++
-  ) {
-    const r =
-      imageData.data[i];
-
-    const g =
-      imageData.data[i + 1];
-
-    const b =
-      imageData.data[i + 2];
-
-    out[p] =
-      0.299 * r +
-      0.587 * g +
-      0.114 * b;
-  }
-
-  return out;
+function getRiskLevel(score) {
+    if (score === null || score === undefined) return "UNKNOWN";
+    if (score >= 70) return "HIGH";
+    if (score >= 40) return "MEDIUM";
+    return "LOW";
 }
-
-function dctHash(
-  gray,
-  size = 32,
-  block = 8
-) {
-  const values = [];
-
-  const c = n =>
-    n === 0
-      ? 1 / Math.sqrt(2)
-      : 1;
-
-  for (
-    let u = 0;
-    u < block;
-    u++
-  ) {
-    for (
-      let v = 0;
-      v < block;
-      v++
-    ) {
-      let sum = 0;
-
-      for (
-        let x = 0;
-        x < size;
-        x++
-      ) {
-        for (
-          let y = 0;
-          y < size;
-          y++
-        ) {
-          sum +=
-            gray[
-              x * size + y
-            ] *
-            Math.cos(
-              ((2 * x + 1) *
-                u *
-                Math.PI) /
-                (2 * size)
-            ) *
-            Math.cos(
-              ((2 * y + 1) *
-                v *
-                Math.PI) /
-                (2 * size)
-            );
-        }
-      }
-
-      values.push(
-        0.25 *
-          c(u) *
-          c(v) *
-          sum
-      );
-    }
-  }
-
-  const sorted =
-    values
-      .slice(1)
-      .sort(
-        (a, b) => a - b
-      );
-
-  const median =
-    sorted[
-      Math.floor(
-        sorted.length / 2
-      )
-    ];
-
-  let hex = "";
-
-  for (
-    let i = 0;
-    i < 64;
-    i += 4
-  ) {
-    let nibble = 0;
-
-    for (
-      let j = 0;
-      j < 4;
-      j++
-    ) {
-      if (
-        values[i + j] >=
-        median
-      ) {
-        nibble |=
-          1 << (3 - j);
-      }
-    }
-
-    hex +=
-      nibble.toString(16);
-  }
-
-  return hex;
-}
-
-function differenceHash(
-  imageData,
-  size = 32
-) {
-  const gray =
-    grayscalePixels(
-      imageData
-    );
-
-  const bits = [];
-
-  for (
-    let y = 0;
-    y < size;
-    y++
-  ) {
-    for (
-      let x = 0;
-      x < size - 1;
-      x++
-    ) {
-      bits.push(
-        gray[
-          y * size + x
-        ] >
-        gray[
-          y * size + x + 1
-        ]
-          ? 1
-          : 0
-      );
-    }
-  }
-
-  let hex = "";
-
-  for (
-    let i = 0;
-    i < 1024;
-    i += 4
-  ) {
-    let n = 0;
-
-    for (
-      let j = 0;
-      j < 4;
-      j++
-    ) {
-      n |=
-        bits[i + j] <<
-        (3 - j);
-    }
-
-    hex +=
-      n.toString(16);
-  }
-
-  return hex;
-}
-
-async function localImageHashes(
-  file
-) {
-  if (
-    !file ||
-    !file.type.startsWith(
-      "image/"
-    )
-  ) {
-    return null;
-  }
-
-  const data =
-    await imageToCanvas(
-      file,
-      32
-    );
-
-  const gray =
-    grayscalePixels(data);
-
-  return {
-    phash:
-      dctHash(gray),
-
-    dhash:
-      differenceHash(data)
-  };
-}
-
-function hammingHex(
-  a,
-  b
-) {
-  const aa =
-    String(a || "")
-      .replace(/^0x/, "")
-      .toLowerCase();
-
-  const bb =
-    String(b || "")
-      .replace(/^0x/, "")
-      .toLowerCase();
-
-  if (
-    !aa ||
-    !bb ||
-    aa.length !==
-      bb.length
-  ) {
-    return null;
-  }
-
-  let distance = 0;
-
-  for (
-    let i = 0;
-    i < aa.length;
-    i++
-  ) {
-    const x =
-      parseInt(
-        aa[i],
-        16
-      );
-
-    const y =
-      parseInt(
-        bb[i],
-        16
-      );
-
-    if (
-      Number.isNaN(x) ||
-      Number.isNaN(y)
-    ) {
-      return null;
-    }
-
-    let z = x ^ y;
-
-    while (z) {
-      distance +=
-        z & 1;
-
-      z >>>= 1;
-    }
-  }
-
-  return distance;
-}
-
-function imageSimilarity(
-  registeredPHash,
-  currentHashes
-) {
-  if (
-    !registeredPHash ||
-    !currentHashes
-  ) {
-    return null;
-  }
-
-  const stored =
-    String(
-      registeredPHash
-    );
-
-  let oldP =
-    stored;
-
-  let oldD = "";
-
-  if (
-    stored.includes("|")
-  ) {
-    for (
-      const part of
-        stored.split("|")
-    ) {
-      const [
-        key,
-        value
-      ] =
-        part.split(":");
-
-      if (key === "phash") {
-        oldP = value;
-      }
-
-      if (key === "dhash") {
-        oldD = value;
-      }
-    }
-  }
-
-  const pDist =
-    hammingHex(
-      oldP,
-      currentHashes.phash
-    );
-
-  if (pDist === null) {
-    return null;
-  }
-
-  const pBits =
-    oldP
-      .replace(/^0x/, "")
-      .length * 4;
-
-  let pScore =
-    100 -
-    (pDist /
-      Math.max(
-        1,
-        pBits
-      )) *
-      100;
-
-  if (oldD) {
-    const dDist =
-      hammingHex(
-        oldD,
-        currentHashes.dhash
-      );
-
-    if (
-      dDist !== null
-    ) {
-      const dBits =
-        oldD
-          .replace(/^0x/, "")
-          .length * 4;
-
-      const dScore =
-        100 -
-        (dDist /
-          Math.max(
-            1,
-            dBits
-          )) *
-          100;
-
-      pScore =
-        pScore * 0.75 +
-        dScore * 0.25;
-    }
-  }
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      Number(
-        pScore.toFixed(2)
-      )
-    )
-  );
-}
-
 
 /* =========================================================
    APP
@@ -737,16 +172,105 @@ function App() {
 
     const [verification, setVerification] = useState(null);
 
+    const [history, setHistory] = useState([]);
+
     const [riskState, setRiskState] = useState({
         score: 0,
         invalidAttempts: 0,
         blockedUntil: 0
     });
 
-    const [blockSeconds, setBlockSeconds] =
-        useState(0);
+    const [blockSeconds, setBlockSeconds] = useState(0);
 
-    const [history, setHistory] = useState([]);
+    /* =====================================================
+       RISK MONITOR
+       ===================================================== */
+
+    useEffect(() => {
+        const id = riskKey(verifyTwinId);
+        if (!id) {
+            setRiskState({ score: 0, invalidAttempts: 0, blockedUntil: 0 });
+            setBlockSeconds(0);
+            return;
+        }
+
+        const tick = () => {
+            const state = clearExpiredRiskLock(id);
+            setRiskState(state);
+            setBlockSeconds(
+                state.blockedUntil > Date.now()
+                    ? Math.max(0, Math.ceil((state.blockedUntil - Date.now()) / 1000))
+                    : 0
+            );
+        };
+
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [verifyTwinId]);
+
+    /* =====================================================
+       OPEN VERIFY PAGE FROM QR CODE
+       ===================================================== */
+
+    useEffect(() => {
+
+        /*
+         * QR links use hash routing so Render's static hosting
+         * does not interfere with the verify route:
+         * /#/verify?twinId=...
+         *
+         * Old QR links using ?page=verify&twinId=... are also
+         * supported for backward compatibility.
+         */
+
+        const hash = window.location.hash || "";
+
+        if (hash.startsWith("#/verify")) {
+
+            const queryStart = hash.indexOf("?");
+            const queryString =
+                queryStart >= 0
+                    ? hash.substring(queryStart + 1)
+                    : "";
+
+            const hashParams =
+                new URLSearchParams(queryString);
+
+            const twinIdParam =
+                hashParams.get("twinId");
+
+            setPage("verify");
+            setVerification(null);
+            setMessage(null);
+
+            if (twinIdParam) {
+                setVerifyTwinId(twinIdParam);
+            }
+
+            return;
+        }
+
+        // Backward compatibility for previously generated QR codes.
+        const params = new URLSearchParams(
+            window.location.search
+        );
+
+        const pageParam = params.get("page");
+        const twinIdParam = params.get("twinId");
+
+        if (pageParam === "verify") {
+
+            setPage("verify");
+            setVerification(null);
+            setMessage(null);
+
+            if (twinIdParam) {
+                setVerifyTwinId(twinIdParam);
+            }
+        }
+
+    }, []);
 
     /* =====================================================
        LOAD HISTORY
@@ -770,47 +294,6 @@ function App() {
         }
 
     }, []);
-
-
-    /* =====================================================
-       RISK TIMER
-       ===================================================== */
-
-    useEffect(() => {
-        const timer = setInterval(() => {
-            const twinId = verifyTwinId.trim();
-
-            if (!twinId) {
-                setRiskState({
-                    score: 0,
-                    invalidAttempts: 0,
-                    blockedUntil: 0
-                });
-                setBlockSeconds(0);
-                return;
-            }
-
-            const state =
-                clearExpiredRiskLock(twinId);
-
-            setRiskState(state);
-
-            setBlockSeconds(
-                state.blockedUntil
-                    ? Math.max(
-                          0,
-                          Math.ceil(
-                              (state.blockedUntil -
-                                  Date.now()) /
-                                  1000
-                          )
-                      )
-                    : 0
-            );
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [verifyTwinId]);
 
     /* =====================================================
        METAMASK LISTENERS
@@ -1145,16 +628,6 @@ function App() {
             registeredPHash
         );
 
-        formData.append(
-            "registered_hash",
-            registeredHash
-        );
-
-        formData.append(
-            "registered_phash",
-            registeredPHash
-        );
-
         const response =
             await fetch(
                 `${BACKEND_URL}/api/ai/analyze`,
@@ -1472,7 +945,7 @@ function App() {
             );
 
             throw new Error(
-                "The deployed smart contract returned data that does not match the getTwin ABI."
+                "The deployed smart contract returned data that does not match the twins ABI."
             );
 
         }
@@ -1483,193 +956,81 @@ function App() {
        SAFE BLOCKCHAIN TWIN READER
        ===================================================== */
 
-    async function readTwin(
-        contract,
-        twinId
-    ) {
+    async function readTwin(contract, twinId) {
 
+        if (!twinId) {
+            throw new Error("Twin ID is empty.");
+        }
+
+        if (
+            !ethers.isHexString(twinId) ||
+            ethers.dataLength(twinId) !== 32
+        ) {
+            throw new Error(
+                "Invalid Twin ID. Twin ID must be a 32-byte hexadecimal value."
+            );
+        }
+
+        const provider =
+            contract.runner?.provider ||
+            contract.runner;
+
+        if (!provider) {
+            throw new Error("Blockchain provider is not available.");
+        }
+
+        const code = await provider.getCode(CONTRACT_ADDRESS);
+
+        if (!code || code === "0x") {
+            throw new Error(
+                "No smart contract was found at the configured contract address on Sepolia. Check VITE_CONTRACT_ADDRESS."
+            );
+        }
+
+        console.log("DT-SDA contract:", CONTRACT_ADDRESS);
+        console.log("Checking Twin ID:", twinId);
+
+        /*
+         IMPORTANT:
+         The Solidity contract declares:
+
+             mapping(bytes32 => DigitalTwin) public twins;
+
+         The public mapping getter is safer than calling a custom
+         getTwin() function because a missing Twin simply returns
+         zero/default values instead of reverting.
+        */
         try {
+            const twin = await contract.twins(twinId);
 
-            if (!twinId) {
+            console.log("Raw twins() response:", twin);
 
-                throw new Error(
-                    "Twin ID is empty."
-                );
+            const parsed = parseTwinResult(twin);
 
+            // An unregistered mapping entry contains an empty documentId.
+            if (!parsed || !parsed.documentId.trim()) {
+                return null;
             }
 
-            /* ---------------------------------------------
-               VALIDATE TWIN ID
-               --------------------------------------------- */
-
-            if (
-                !ethers.isHexString(twinId) ||
-                ethers.dataLength(twinId) !== 32
-            ) {
-
-                throw new Error(
-                    "Invalid Twin ID. Twin ID must be a 32-byte hexadecimal value."
-                );
-
-            }
-
-            /* ---------------------------------------------
-               GET PROVIDER
-               --------------------------------------------- */
-
-            const provider =
-                contract.runner?.provider ||
-                contract.runner;
-
-            if (!provider) {
-
-                throw new Error(
-                    "Blockchain provider is not available."
-                );
-
-            }
-
-            /* ---------------------------------------------
-               CHECK CONTRACT
-               --------------------------------------------- */
-
-            const code =
-                await provider.getCode(
-                    CONTRACT_ADDRESS
-                );
-
-            if (
-                !code ||
-                code === "0x"
-            ) {
-
-                throw new Error(
-                    "No smart contract was found at the configured contract address on Sepolia. Check VITE_CONTRACT_ADDRESS."
-                );
-
-            }
-
-            console.log(
-                "DT-SDA contract:",
-                CONTRACT_ADDRESS
-            );
-
-            console.log(
-                "Checking Twin ID:",
-                twinId
-            );
-
-            /* ---------------------------------------------
-               CREATE INTERFACE
-               --------------------------------------------- */
-
-            const iface =
-                new ethers.Interface(
-                    CONTRACT_ABI
-                );
-
-            /* ---------------------------------------------
-               ENCODE getTwin()
-               --------------------------------------------- */
-
-            const calldata =
-                iface.encodeFunctionData(
-                    "getTwin",
-                    [twinId]
-                );
-
-            console.log(
-                "getTwin calldata:",
-                calldata
-            );
-
-            /* ---------------------------------------------
-               RAW BLOCKCHAIN CALL
-               --------------------------------------------- */
-
-            const raw =
-                await provider.call({
-
-                    to:
-                        CONTRACT_ADDRESS,
-
-                    data:
-                        calldata
-
-                });
-
-            console.log(
-                "Raw getTwin response:",
-                raw
-            );
-
-            /* ---------------------------------------------
-               NO DATA
-               --------------------------------------------- */
-
-            if (
-                !raw ||
-                raw === "0x"
-            ) {
-
-                throw new Error(
-                    "The deployed contract returned no data for getTwin(). Check that the contract address and getTwin ABI belong to the same deployed contract."
-                );
-
-            }
-
-            /* ---------------------------------------------
-               DECODE MANUALLY
-               --------------------------------------------- */
-
-            let decoded;
-
-            try {
-
-                decoded =
-                    iface.decodeFunctionResult(
-                        "getTwin",
-                        raw
-                    );
-
-            } catch (decodeError) {
-
-                console.error(
-                    "ABI decoding error:",
-                    decodeError
-                );
-
-                throw new Error(
-                    "The blockchain returned data, but it does not match the getTwin() return structure in App.jsx. The deployed smart contract ABI is different."
-                );
-
-            }
-
-            console.log(
-                "Decoded getTwin:",
-                decoded
-            );
-
-            return parseTwinResult(
-                decoded
-            );
+            return parsed;
 
         } catch (error) {
+            console.error("Blockchain Twin read error:", error);
 
-            console.error(
-                "Blockchain Twin read error:",
-                error
-            );
-
-            throw new Error(
+            const message =
                 error?.shortMessage ||
                 error?.reason ||
                 error?.message ||
-                "Unable to read the Digital Twin from the blockchain."
-            );
+                "Unable to read the Digital Twin from the blockchain.";
 
+            if (String(message).toLowerCase().includes("missing revert data")) {
+                throw new Error(
+                    "The contract call reverted without data. Verify that VITE_CONTRACT_ADDRESS points to the DT-SDA contract deployed on Sepolia and that its public mapping is named twins."
+                );
+            }
+
+            throw new Error(message);
         }
-
     }
 
     /* =====================================================
@@ -1744,6 +1105,8 @@ function App() {
                 );
 
             }
+
+            await validateSepoliaContract(provider);
 
             const contract =
                 new ethers.Contract(
@@ -1899,16 +1262,19 @@ function App() {
                         file
                     );
 
-                const existingQrText =
-                    `${window.location.origin}/?page=verify&twinId=${encodeURIComponent(twinId)}`;
+                /* ---------------------------------------------
+                   QR CODE FOR EXISTING TWIN
+                   --------------------------------------------- */
 
-                const existingQr =
+                const qrText =
+                    `${window.location.origin}/#/verify?twinId=${encodeURIComponent(twinId)}`;
+
+                const qr =
                     await QRCode.toDataURL(
-                        existingQrText,
+                        qrText,
                         {
                             width: 260,
-                            margin: 2,
-                            errorCorrectionLevel: "H"
+                            margin: 2
                         }
                     );
 
@@ -1928,6 +1294,8 @@ function App() {
                     documentType:
                         existingType,
 
+                    qr,
+
                     timestamp:
                         new Date(
                             Number(
@@ -1939,9 +1307,6 @@ function App() {
                         getStatusName(
                             existing.status
                         ),
-
-                    qr:
-                        existingQr,
 
                     ai:
                         existingAI
@@ -2018,7 +1383,7 @@ function App() {
                --------------------------------------------- */
 
             const qrText =
-                `${window.location.origin}/?page=verify&twinId=${twinId}`;
+                `${window.location.origin}/#/verify?twinId=${encodeURIComponent(twinId)}`;
 
             const qr =
                 await QRCode.toDataURL(
@@ -2120,559 +1485,502 @@ function App() {
        ===================================================== */
 
     async function verifyDocument() {
-        const twinId =
-          verifyTwinId.trim();
 
-        if (!CONTRACT_ADDRESS) {
-          setMessage({
-            type: "error",
-            text:
-              "Please set VITE_CONTRACT_ADDRESS in .env."
-          });
+        if (!verifyTwinId.trim()) {
 
-          return;
-        }
+            setMessage({
+                type: "error",
+                text:
+                    "Enter the Twin ID."
+            });
 
-        if (!twinId) {
-          setMessage({
-            type: "error",
-            text:
-              "Enter the Twin ID."
-          });
+            return;
 
-          return;
         }
 
         if (!verifyFile) {
-          setMessage({
-            type: "error",
-            text:
-              "Choose the document to verify."
-          });
 
-          return;
+            setMessage({
+                type: "error",
+                text:
+                    "Choose the document to verify."
+            });
+
+            return;
+
         }
 
-        const before =
-          clearExpiredRiskLock(
-            twinId
-          );
-
-        const beforeRemaining =
-          before.blockedUntil
-            ? Math.max(
-                0,
-                Math.ceil(
-                  (before.blockedUntil -
-                    Date.now()) /
-                    1000
-                )
-              )
-            : 0;
-
-        setRiskState(before);
-
-        setBlockSeconds(
-          beforeRemaining
-        );
+        const currentRisk = clearExpiredRiskLock(verifyTwinId.trim());
+        if (currentRisk.blockedUntil > Date.now()) {
+            setRiskState(currentRisk);
+            setBlockSeconds(Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000));
+            setMessage({
+                type: "error",
+                text: `Verification temporarily blocked. Try again in ${Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000)} seconds.`
+            });
+            return;
+        }
 
         if (
-          beforeRemaining > 0
+            CONTRACT_ADDRESS ===
+            "PASTE_YOUR_DEPLOYED_CONTRACT_ADDRESS_HERE"
         ) {
-          setMessage({
-            type: "error",
-            text:
-              `Verification is temporarily blocked. Try again in ${beforeRemaining} seconds.`
-          });
 
-          return;
+            setMessage({
+                type: "error",
+                text:
+                    "Please set VITE_CONTRACT_ADDRESS in .env."
+            });
+
+            return;
+
         }
 
         try {
-          setLoading(true);
 
-          setMessage(null);
+            setLoading(true);
+            setMessage(null);
+            setVerification(null);
 
-          setVerification(null);
+            /* ---------------------------------------------
+               SEPOLIA PROVIDER
+               --------------------------------------------- */
 
-          const provider =
-            new ethers.JsonRpcProvider(
-              SEPOLIA_RPC
-            );
-
-          const n =
-            await provider.getNetwork();
-
-          if (
-            Number(n.chainId) !==
-            SEPOLIA_CHAIN_ID
-          ) {
-            throw new Error(
-              "The blockchain RPC is not connected to Ethereum Sepolia."
-            );
-          }
-
-          const code =
-            await provider.getCode(
-              CONTRACT_ADDRESS
-            );
-
-          if (
-            code === "0x"
-          ) {
-            throw new Error(
-              "No smart contract was found at VITE_CONTRACT_ADDRESS on Sepolia."
-            );
-          }
-
-          const contract =
-            new ethers.Contract(
-              CONTRACT_ADDRESS,
-              CONTRACT_ABI,
-              provider
-            );
-
-          const twin =
-            await readTwin(
-              contract,
-              twinId
-            );
-
-          /* ---------------------------------------------
-             NOT REGISTERED
-             --------------------------------------------- */
-
-          if (!twin.timestamp) {
-            const r =
-              addInvalidRisk(
-                twinId
-              );
-
-            setRiskState(r);
-
-            setBlockSeconds(
-              r.blockedUntil
-                ? Math.ceil(
-                    (r.blockedUntil -
-                      Date.now()) /
-                      1000
-                  )
-                : 0
-            );
-
-            const result = {
-              result:
-                "INVALID",
-
-              reason:
-                "Document is not registered on the blockchain.",
-
-              twinId,
-
-              documentId:
-                "—",
-
-              documentType:
-                getDocumentType(
-                  null,
-                  verifyFile
-                ),
-
-              issuer:
-                "",
-
-              timestamp:
-                "",
-
-              status:
-                "NOT REGISTERED",
-
-              hashMatch:
-                false,
-
-              perceptualHash:
-                "",
-
-              similarity:
-                0,
-
-              riskScore:
-                r.score,
-
-              riskLevel:
-                getRiskLevel(
-                  r.score
-                )
-            };
-
-            setVerification(
-              result
-            );
-
-            addHistory({
-              type:
-                "VERIFICATION",
-
-              ...result,
-
-              checkedAt:
-                new Date().toISOString()
-            });
-
-            setMessage({
-              type: "error",
-
-              text:
-                r.score >= 100
-                  ? "Risk score reached 100. Verification is blocked for 60 seconds."
-                  : `Invalid verification. Risk score increased to ${r.score}/100.`
-            });
-
-            return;
-          }
-
-          /* ---------------------------------------------
-             REVOKED
-             --------------------------------------------- */
-
-          if (
-            twin.status === 3
-          ) {
-            const r =
-              addInvalidRisk(
-                twinId
-              );
-
-            const result = {
-              result:
-                "INVALID",
-
-              reason:
-                "Document has been revoked.",
-
-              twinId,
-
-              documentId:
-                twin.documentId,
-
-              documentType:
-                getDocumentType(
-                  null,
-                  verifyFile
-                ),
-
-              issuer:
-                twin.issuer,
-
-              timestamp:
-                new Date(
-                  Number(
-                    twin.timestamp
-                  ) * 1000
-                ).toISOString(),
-
-              status:
-                getStatusName(
-                  twin.status
-                ),
-
-              hashMatch:
-                false,
-
-              perceptualHash:
-                twin.perceptualHash,
-
-              similarity:
-                0,
-
-              riskScore:
-                r.score,
-
-              riskLevel:
-                getRiskLevel(
-                  r.score
-                )
-            };
-
-            setRiskState(r);
-
-            setBlockSeconds(
-              r.blockedUntil
-                ? Math.ceil(
-                    (r.blockedUntil -
-                      Date.now()) /
-                      1000
-                  )
-                : 0
-            );
-
-            setVerification(
-              result
-            );
-
-            addHistory({
-              type:
-                "VERIFICATION",
-
-              ...result,
-
-              checkedAt:
-                new Date().toISOString()
-            });
-
-            setMessage({
-              type: "error",
-
-              text:
-                r.score >= 100
-                  ? "Document revoked. Verification is blocked for 60 seconds."
-                  : `Document revoked. Risk score increased to ${r.score}/100.`
-            });
-
-            return;
-          }
-
-          /* ---------------------------------------------
-             SHA-256
-             --------------------------------------------- */
-
-          const submittedHash =
-            await sha256File(
-              verifyFile
-            );
-
-          const hashMatch =
-            submittedHash.toLowerCase() ===
-            twin.contentHash.toLowerCase();
-
-          /* ---------------------------------------------
-             AI
-             --------------------------------------------- */
-
-          let ai = null;
-
-          try {
-            ai =
-              await backendAI(
-                verifyFile,
-                twin.contentHash,
-                twin.perceptualHash
-              );
-          } catch (e) {
-            console.warn(
-              "AI engine unavailable:",
-              e
-            );
-          }
-
-          /* ---------------------------------------------
-             IMAGE SIMILARITY
-             --------------------------------------------- */
-
-          let similarity = null;
-
-          if (
-            verifyFile.type.startsWith(
-              "image/"
-            ) &&
-            twin.perceptualHash
-          ) {
-            const currentHashes =
-              await localImageHashes(
-                verifyFile
-              );
-
-            similarity =
-              imageSimilarity(
-                twin.perceptualHash,
-                currentHashes
-              );
-          }
-
-          /* Exact document = 100% */
-          if (hashMatch) {
-            similarity = 100;
-          }
-
-          if (
-            similarity == null
-          ) {
-            similarity =
-              ai?.similarity ??
-              (hashMatch
-                ? 100
-                : 0);
-          }
-
-          similarity =
-            Math.max(
-              0,
-              Math.min(
-                100,
-                Number(
-                  similarity.toFixed(
-                    2
-                  )
-                )
-              )
-            );
-
-          /* ---------------------------------------------
-             RISK
-             --------------------------------------------- */
-
-          const r =
-            hashMatch
-              ? {
-                  score: 0,
-                  invalidAttempts: 0,
-                  blockedUntil: 0
-                }
-              : addInvalidRisk(
-                  twinId
+            const provider =
+                new ethers.JsonRpcProvider(
+                    SEPOLIA_RPC
                 );
 
-          if (hashMatch) {
-            saveRiskState(
-              twinId,
-              r
-            );
-          }
+            /* ---------------------------------------------
+               CHECK NETWORK
+               --------------------------------------------- */
 
-          setRiskState(r);
+            const networkInfo =
+                await provider.getNetwork();
 
-          const remaining =
-            r.blockedUntil
-              ? Math.max(
-                  0,
-                  Math.ceil(
-                    (r.blockedUntil -
-                      Date.now()) /
-                      1000
-                  )
-                )
-              : 0;
+            if (
+                Number(networkInfo.chainId) !==
+                SEPOLIA_CHAIN_ID
+            ) {
 
-          setBlockSeconds(
-            remaining
-          );
+                throw new Error(
+                    "The blockchain RPC is not connected to Ethereum Sepolia."
+                );
 
-          /* ---------------------------------------------
-             RESULT
-             --------------------------------------------- */
-
-          const result = {
-            result:
-              hashMatch
-                ? "VALID"
-                : "INVALID",
-
-            reason:
-              hashMatch
-                ? "Document is authentic and has not been tampered with."
-                : "Document tampered: content hash mismatch.",
-
-            twinId,
-
-            documentId:
-              twin.documentId,
-
-            documentType:
-              getDocumentType(
-                ai,
-                verifyFile
-              ),
-
-            issuer:
-              twin.issuer,
-
-            timestamp:
-              new Date(
-                Number(
-                  twin.timestamp
-                ) * 1000
-              ).toISOString(),
-
-            status:
-              getStatusName(
-                twin.status
-              ),
-
-            hashMatch,
-
-            perceptualHash:
-              twin.perceptualHash,
-
-            submittedHash,
-
-            blockchainHash:
-              twin.contentHash,
-
-            similarity,
-
-            riskScore:
-              r.score,
-
-            riskLevel:
-              getRiskLevel(
-                r.score
-              ),
-
-            ai: {
-              ...(ai || {}),
-
-              similarity,
-
-              riskScore:
-                r.score,
-
-              riskLevel:
-                getRiskLevel(
-                  r.score
-                )
             }
-          };
 
-          setVerification(
-            result
-          );
+            /* ---------------------------------------------
+               CONTRACT
+               --------------------------------------------- */
 
-          addHistory({
-            type:
-              "VERIFICATION",
+            const contract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    provider
+                );
 
-            ...result,
+            /* ---------------------------------------------
+               READ BLOCKCHAIN
+               --------------------------------------------- */
 
-            checkedAt:
-              new Date().toISOString()
-          });
+            const twin =
+                await readTwin(
+                    contract,
+                    verifyTwinId.trim()
+                );
 
-          setMessage({
-            type:
-              hashMatch
-                ? "success"
-                : "error",
+            if (!twin) {
 
-            text:
-              hashMatch
-                ? "Document is valid. Risk score reset to 0/100."
-                : r.score >= 100
-                  ? "Invalid document. Risk score reached 100. Verification is blocked for 60 seconds."
-                  : `Invalid document. Visual similarity: ${similarity}%. Risk score: ${r.score}/100.`
-          });
-        } catch (e) {
-          console.error(e);
+                throw new Error(
+                    "Digital Twin could not be read."
+                );
 
-          setMessage({
-            type: "error",
-            text:
-              getErrorMessage(e)
-          });
+            }
+
+            const timestamp =
+                Number(
+                    twin.timestamp
+                );
+
+            /* ---------------------------------------------
+               NOT REGISTERED
+               --------------------------------------------- */
+
+            if (!timestamp) {
+
+                const nextRisk = addInvalidRisk(verifyTwinId.trim());
+                setRiskState(nextRisk);
+                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
+
+                const invalidResult = {
+
+                    result:
+                        "INVALID",
+
+                    reason:
+                        "Document is not registered on the blockchain.",
+
+                    twinId:
+                        verifyTwinId.trim(),
+
+                    documentId:
+                        "—",
+
+                    documentType:
+                        getDocumentType(
+                            null,
+                            verifyFile
+                        ),
+
+                    submittedHash:
+                        "",
+
+                    blockchainHash:
+                        "",
+
+                    issuer:
+                        "",
+
+                    timestamp:
+                        "",
+
+                    status:
+                        "NOT REGISTERED",
+
+                    hashMatch:
+                        false,
+
+                    ai:
+                        null,
+
+                    similarity:
+                        0,
+
+                    riskScore:
+                        nextRisk.score,
+
+                    riskLevel:
+                        getRiskLevel(nextRisk.score)
+
+                };
+
+                setVerification(
+                    invalidResult
+                );
+
+                saveHistory({
+
+                    type:
+                        "VERIFICATION",
+
+                    ...invalidResult,
+
+                    checkedAt:
+                        new Date().toISOString()
+
+                });
+
+                setMessage({
+
+                    type: "error",
+
+                    text:
+                        "Document is not registered."
+
+                });
+
+                return;
+
+            }
+
+            /* ---------------------------------------------
+               STATUS
+               --------------------------------------------- */
+
+            const status =
+                Number(
+                    twin.status
+                );
+
+            const statusName =
+                getStatusName(
+                    status
+                );
+
+            /* ---------------------------------------------
+               REVOKED
+               --------------------------------------------- */
+
+            if (status === 3) {
+
+                const nextRisk = addInvalidRisk(verifyTwinId.trim());
+                setRiskState(nextRisk);
+                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
+
+                const revokedResult = {
+
+                    result:
+                        "INVALID",
+
+                    reason:
+                        "Document has been revoked.",
+
+                    twinId:
+                        verifyTwinId.trim(),
+
+                    documentId:
+                        twin.documentId,
+
+                    documentType:
+                        getDocumentType(
+                            null,
+                            verifyFile
+                        ),
+
+                    issuer:
+                        twin.issuer,
+
+                    timestamp:
+                        new Date(
+                            timestamp * 1000
+                        ).toISOString(),
+
+                    status:
+                        statusName,
+
+                    hashMatch:
+                        false,
+
+                    perceptualHash:
+                        twin.perceptualHash,
+
+                    ai:
+                        null,
+
+                    similarity:
+                        0,
+
+                    riskScore:
+                        nextRisk.score,
+
+                    riskLevel:
+                        getRiskLevel(nextRisk.score)
+
+                };
+
+                setVerification(
+                    revokedResult
+                );
+
+                setMessage({
+
+                    type: "error",
+
+                    text:
+                        "Document has been revoked."
+
+                });
+
+                return;
+
+            }
+
+            /* ---------------------------------------------
+               SHA256
+               --------------------------------------------- */
+
+            const submittedHash =
+                await sha256File(
+                    verifyFile
+                );
+
+            const blockchainHash =
+                twin.contentHash;
+
+            const hashMatch =
+                submittedHash.toLowerCase() ===
+                blockchainHash.toLowerCase();
+
+            /* ---------------------------------------------
+               AI
+               --------------------------------------------- */
+
+            let aiResult = null;
+
+            try {
+
+                aiResult =
+                    await runAIAnalysis(
+                        verifyFile,
+                        blockchainHash,
+                        twin.perceptualHash
+                    );
+
+            } catch (aiError) {
+
+                console.warn(
+                    "AI verification unavailable:",
+                    aiError
+                );
+
+            }
+
+            /* ---------------------------------------------
+               SCORE FALLBACK
+               --------------------------------------------- */
+
+            const similarity =
+                aiResult?.similarity ??
+                (hashMatch ? 100 : 0);
+
+            const riskScore =
+                aiResult?.riskScore ??
+                (hashMatch ? 0 : 100);
+
+            const riskLevel =
+                aiResult?.riskLevel ||
+                getRiskLevel(
+                    riskScore
+                );
+
+            const documentType =
+                getDocumentType(
+                    aiResult,
+                    verifyFile
+                );
+
+            /* ---------------------------------------------
+               VALIDATION
+               --------------------------------------------- */
+
+            const valid =
+                hashMatch;
+
+            const nextRisk = valid
+                ? resetRisk(verifyTwinId.trim())
+                : addInvalidRisk(verifyTwinId.trim());
+
+            setRiskState(nextRisk);
+            setBlockSeconds(
+                nextRisk.blockedUntil > Date.now()
+                    ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000)
+                    : 0
+            );
+
+            const verificationResult = {
+
+                result:
+                    valid
+                        ? "VALID"
+                        : "INVALID",
+
+                reason:
+                    valid
+                        ? "Document is authentic and has not been tampered with."
+                        : "Document tampered: content hash mismatch.",
+
+                twinId:
+                    verifyTwinId.trim(),
+
+                documentId:
+                    twin.documentId,
+
+                documentType,
+
+                issuer:
+                    twin.issuer,
+
+                timestamp:
+                    new Date(
+                        timestamp * 1000
+                    ).toISOString(),
+
+                status:
+                    statusName,
+
+                hashMatch,
+
+                perceptualHash:
+                    twin.perceptualHash,
+
+                ai:
+                    aiResult
+                        ? {
+                            ...aiResult,
+                            similarity,
+                            riskScore,
+                            riskLevel,
+                            documentType
+                        }
+                        : {
+                            similarity,
+                            riskScore,
+                            riskLevel,
+                            documentType
+                        },
+
+                similarity,
+
+                riskScore,
+
+                riskLevel
+
+            };
+
+            setVerification(
+                verificationResult
+            );
+
+            saveHistory({
+
+                type:
+                    "VERIFICATION",
+
+                ...verificationResult,
+
+                checkedAt:
+                    new Date().toISOString()
+
+            });
+
+            setMessage({
+
+                type:
+                    valid
+                        ? "success"
+                        : "error",
+
+                text:
+                    valid
+                        ? "Document is valid."
+                        : "Document verification failed."
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Verification error:",
+                error
+            );
+
+            setMessage({
+
+                type: "error",
+
+                text:
+                    getErrorMessage(error)
+
+            });
+
         } finally {
-          setLoading(false);
-        }
-      }
 
+            setLoading(false);
+
+        }
+
+    }
 
     /* =====================================================
        HISTORY
@@ -3079,12 +2387,8 @@ function App() {
                             verification={
                                 verification
                             }
-                            riskState={
-                                riskState
-                            }
-                            blockSeconds={
-                                blockSeconds
-                            }
+                            riskState={riskState}
+                            blockSeconds={blockSeconds}
                         />
 
                     )}
@@ -3759,6 +3063,15 @@ function Verify({
 
                 )}
 
+                {blockSeconds > 0 && (
+                    <div className="risk-lock-banner">
+                        <strong>Verification temporarily blocked</strong>
+                        <span>
+                            Risk score reached 100/100. Try again in {blockSeconds} seconds.
+                        </span>
+                    </div>
+                )}
+
                 <button
                     className="primary-button"
                     onClick={
@@ -3769,68 +3082,42 @@ function Verify({
                         blockSeconds > 0
                     }
                 >
+
                     {loading
                         ? "Verifying..."
-                        : blockSeconds > 0
-                            ? `Blocked (${blockSeconds}s)`
-                            : "✓  Verify Document"}
+                        : "✓  Verify Document"}
 
                 </button>
 
             </div>
 
             <div className="risk-monitor-card">
-
                 <div className="risk-monitor-top">
-
                     <div>
-                        <span className="risk-monitor-label">
-                            Verification Risk
-                        </span>
-
-                        <strong>
-                            {riskState.score}/100
-                        </strong>
+                        <span className="risk-monitor-label">Verification Risk</span>
+                        <strong>{riskState?.score ?? 0}/100</strong>
                     </div>
-
-                    <span
-                        className={`risk-badge ${
-                            blockSeconds > 0
-                                ? "high"
-                                : riskState.score >= 70
-                                    ? "high"
-                                    : riskState.score >= 40
-                                        ? "medium"
-                                        : "low"
-                        }`}
-                    >
-                        {blockSeconds > 0
-                            ? "BLOCKED"
-                            : getRiskLevelOutside(riskState.score)}
+                    <span className={
+                        (riskState?.score ?? 0) >= 70
+                            ? "risk-badge high"
+                            : (riskState?.score ?? 0) >= 40
+                                ? "risk-badge medium"
+                                : "risk-badge low"
+                    }>
+                        {blockSeconds > 0 ? "BLOCKED" : getRiskLevel(riskState?.score ?? 0)}
                     </span>
-
                 </div>
-
                 <div className="risk-monitor-bar">
-                    <span
-                        style={{
-                            width: `${riskState.score}%`
-                        }}
-                    />
+                    <span style={{ width: `${Math.min(100, riskState?.score ?? 0)}%` }} />
                 </div>
-
                 <div className="risk-monitor-footer">
-                    <span>
-                        Invalid attempts: {riskState.invalidAttempts}
-                    </span>
-
+                    <span>Invalid attempts: {riskState?.invalidAttempts ?? 0}</span>
                     <span>
                         {blockSeconds > 0
                             ? `Blocked for ${blockSeconds}s`
                             : "Each invalid attempt: +25 risk"}
                     </span>
                 </div>
-
             </div>
 
             {verification ? (
