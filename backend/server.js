@@ -1,5 +1,5 @@
 // ============================================================
-// DT-SDA - Secure Document Authentication
+// DT-SDA - Digital Twin Secure Document Authentication
 // Backend Server
 // ============================================================
 
@@ -53,7 +53,7 @@ app.use(
 );
 
 // ============================================================
-// UPLOAD CONFIGURATION
+// MULTER
 // ============================================================
 
 const upload = multer({
@@ -105,6 +105,7 @@ const DATA_DIR =
     );
 
 if (!fs.existsSync(DATA_DIR)) {
+
     fs.mkdirSync(
         DATA_DIR,
         {
@@ -145,7 +146,9 @@ function readDocuments() {
             return [];
         }
 
-        return JSON.parse(content);
+        return JSON.parse(
+            content
+        );
 
     } catch (error) {
 
@@ -158,8 +161,9 @@ function readDocuments() {
     }
 }
 
-
-function writeDocuments(documents) {
+function writeDocuments(
+    documents
+) {
 
     try {
 
@@ -190,7 +194,9 @@ function writeDocuments(documents) {
 // SHA-256
 // ============================================================
 
-function calculateSHA256(buffer) {
+function calculateSHA256(
+    buffer
+) {
 
     return crypto
         .createHash("sha256")
@@ -202,7 +208,9 @@ function calculateSHA256(buffer) {
 // DOCUMENT TYPE
 // ============================================================
 
-function getDocumentType(filename) {
+function getDocumentType(
+    filename
+) {
 
     const extension =
         path.extname(
@@ -217,11 +225,15 @@ function getDocumentType(filename) {
         return "image";
     }
 
-    if (extension === ".pdf") {
+    if (
+        extension === ".pdf"
+    ) {
         return "pdf";
     }
 
-    if (extension === ".docx") {
+    if (
+        extension === ".docx"
+    ) {
         return "docx";
     }
 
@@ -263,7 +275,7 @@ async function checkAIEngine() {
     } catch (error) {
 
         console.error(
-            "AI Engine check failed:",
+            "AI Engine health check failed:",
             error.message
         );
 
@@ -280,7 +292,10 @@ async function checkAIEngine() {
 
 app.get(
     "/",
-    (req, res) => {
+    async (req, res) => {
+
+        const ai =
+            await checkAIEngine();
 
         res.json({
 
@@ -299,7 +314,10 @@ app.get(
                 PORT,
 
             aiEngine:
-                AI_ENGINE_URL
+                AI_ENGINE_URL,
+
+            aiStatus:
+                ai.status
         });
     }
 );
@@ -320,11 +338,15 @@ app.get(
             success: true,
 
             server: {
-                status: "online",
-                port: PORT
+                status:
+                    "online",
+
+                port:
+                    PORT
             },
 
-            aiEngine: ai
+            aiEngine:
+                ai
         });
     }
 );
@@ -374,7 +396,7 @@ app.get(
 
                 const match =
                     String(
-                        document.documentId
+                        document.documentId || ""
                     ).match(
                         /^D(\d+)$/i
                     );
@@ -420,7 +442,7 @@ app.get(
 );
 
 // ============================================================
-// CALCULATE DOCUMENT HASH
+// DOCUMENT HASH
 // ============================================================
 
 app.post(
@@ -432,7 +454,8 @@ app.post(
 
             if (!req.file) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -473,7 +496,8 @@ app.post(
                 error
             );
 
-            res.status(500)
+            res
+                .status(500)
                 .json({
 
                     success: false,
@@ -489,20 +513,25 @@ app.post(
 // AI DOCUMENT ANALYSIS
 // ============================================================
 //
-// IMPORTANT FIX:
+// IMPORTANT:
 //
-// Frontend may send:
-//
-// registeredHash
-// registeredPHash
-//
-// Older code expected:
+// Frontend can send:
 //
 // registered_hash
 // registered_phash
 //
-// This version accepts BOTH.
+// OR:
 //
+// registeredHash
+// registeredPHash
+//
+// Backend normalizes both and sends:
+//
+// registered_hash
+// registered_phash
+//
+// to the Python AI Engine.
+// ============================================================
 
 app.post(
     "/api/ai/analyze",
@@ -512,12 +541,13 @@ app.post(
         try {
 
             // ------------------------------------------------
-            // FILE CHECK
+            // FILE
             // ------------------------------------------------
 
             if (!req.file) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -528,7 +558,7 @@ app.post(
             }
 
             // ------------------------------------------------
-            // AI STATUS
+            // CHECK AI ENGINE
             // ------------------------------------------------
 
             const ai =
@@ -536,7 +566,8 @@ app.post(
 
             if (!ai.online) {
 
-                return res.status(503)
+                return res
+                    .status(503)
                     .json({
 
                         success: false,
@@ -550,7 +581,7 @@ app.post(
             }
 
             // ------------------------------------------------
-            // GET REGISTERED HASH
+            // REGISTERED SHA-256
             // ------------------------------------------------
 
             const registeredHash =
@@ -561,7 +592,7 @@ app.post(
                 ).trim();
 
             // ------------------------------------------------
-            // GET REGISTERED PHASH
+            // REGISTERED PHASH
             // ------------------------------------------------
 
             const registeredPHash =
@@ -571,25 +602,21 @@ app.post(
                     ""
                 ).trim();
 
-            // ------------------------------------------------
-            // DEBUG INFORMATION
-            // ------------------------------------------------
-
             console.log(
-                "========================================"
+                "=========================================="
             );
 
             console.log(
-                "AI ANALYSIS REQUEST"
+                "DT-SDA AI ANALYSIS"
             );
 
             console.log(
-                "Filename:",
+                "File:",
                 req.file.originalname
             );
 
             console.log(
-                "Registered SHA256:",
+                "Registered SHA-256:",
                 registeredHash
                     ? "RECEIVED"
                     : "EMPTY"
@@ -602,23 +629,12 @@ app.post(
                     : "EMPTY"
             );
 
-            console.log(
-                "AI Engine:",
-                AI_ENGINE_URL
-            );
-
-            console.log(
-                "========================================"
-            );
-
             // ------------------------------------------------
-            // CREATE MULTIPART FORM
+            // CREATE FORM
             // ------------------------------------------------
 
             const form =
                 new FormData();
-
-            // FILE
 
             form.append(
                 "file",
@@ -632,14 +648,12 @@ app.post(
                 }
             );
 
-            // REGISTERED SHA256
+            // THIS IS THE IMPORTANT PART
 
             form.append(
                 "registered_hash",
                 registeredHash
             );
-
-            // REGISTERED PHASH
 
             form.append(
                 "registered_phash",
@@ -647,7 +661,7 @@ app.post(
             );
 
             // ------------------------------------------------
-            // SEND TO PYTHON AI ENGINE
+            // SEND TO AI ENGINE
             // ------------------------------------------------
 
             const response =
@@ -658,50 +672,41 @@ app.post(
                         headers:
                             form.getHeaders(),
 
+                        timeout:
+                            60000,
+
                         maxContentLength:
                             25 * 1024 * 1024,
 
                         maxBodyLength:
-                            25 * 1024 * 1024,
-
-                        timeout:
-                            60000
+                            25 * 1024 * 1024
                     }
                 );
 
             const result =
-                response.data;
-
-            // ------------------------------------------------
-            // LOG AI RESULT
-            // ------------------------------------------------
+                response.data || {};
 
             console.log(
-                "AI RESULT:"
-            );
-
-            console.log(
-                "Similarity:",
+                "AI similarity:",
                 result.similarity
             );
 
             console.log(
-                "pHash distance:",
-                result.phashDistance
-            );
-
-            console.log(
-                "Risk:",
+                "AI risk:",
                 result.riskScore
             );
 
             console.log(
-                "Risk level:",
+                "AI risk level:",
                 result.riskLevel
             );
 
+            console.log(
+                "=========================================="
+            );
+
             // ------------------------------------------------
-            // RETURN RESULT
+            // RETURN AI RESULT
             // ------------------------------------------------
 
             return res.json({
@@ -718,7 +723,7 @@ app.post(
 
                 sha256:
                     result.sha256 ||
-                    "",
+                    null,
 
                 registeredHash:
                     result.registeredHash ||
@@ -741,22 +746,28 @@ app.post(
 
                 similarity:
                     result.similarity !== undefined
-                        ? result.similarity
+                        ? Number(
+                            result.similarity
+                        )
                         : null,
 
                 phashDistance:
                     result.phashDistance !== undefined
-                        ? result.phashDistance
+                        ? Number(
+                            result.phashDistance
+                        )
                         : null,
 
                 riskScore:
                     result.riskScore !== undefined
-                        ? result.riskScore
+                        ? Number(
+                            result.riskScore
+                        )
                         : null,
 
                 riskLevel:
                     result.riskLevel ||
-                    "UNKNOWN",
+                    null,
 
                 riskReasons:
                     Array.isArray(
@@ -769,7 +780,7 @@ app.post(
         } catch (error) {
 
             console.error(
-                "========================================"
+                "=========================================="
             );
 
             console.error(
@@ -791,10 +802,14 @@ app.post(
             }
 
             console.error(
-                "========================================"
+                "=========================================="
             );
 
-            return res.status(500)
+            return res
+                .status(
+                    error.response?.status ||
+                    500
+                )
                 .json({
 
                     success: false,
@@ -814,15 +829,6 @@ app.post(
 // ============================================================
 // VERIFY DOCUMENT
 // ============================================================
-//
-// This also accepts both:
-//
-// registered_hash
-// registeredHash
-//
-// registered_phash
-// registeredPHash
-//
 
 app.post(
     "/api/verify",
@@ -831,9 +837,14 @@ app.post(
 
         try {
 
+            // ------------------------------------------------
+            // FILE
+            // ------------------------------------------------
+
             if (!req.file) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -844,7 +855,7 @@ app.post(
             }
 
             // ------------------------------------------------
-            // SUBMITTED HASH
+            // CURRENT SHA-256
             // ------------------------------------------------
 
             const submittedHash =
@@ -853,7 +864,7 @@ app.post(
                 );
 
             // ------------------------------------------------
-            // REGISTERED HASH
+            // REGISTERED SHA-256
             // ------------------------------------------------
 
             const registeredHash =
@@ -867,7 +878,7 @@ app.post(
             // REGISTERED PHASH
             // ------------------------------------------------
 
-            const registeredPhash =
+            const registeredPHash =
                 String(
                     req.body.registered_phash ??
                     req.body.registeredPHash ??
@@ -918,7 +929,7 @@ app.post(
 
                     form.append(
                         "registered_phash",
-                        registeredPhash
+                        registeredPHash
                     );
 
                     const aiResponse =
@@ -941,7 +952,7 @@ app.post(
                         );
 
                     aiResult =
-                        aiResponse.data;
+                        aiResponse.data || {};
 
                 } catch (aiError) {
 
@@ -949,6 +960,16 @@ app.post(
                         "AI verification error:",
                         aiError.message
                     );
+
+                    if (
+                        aiError.response
+                    ) {
+
+                        console.error(
+                            "AI response:",
+                            aiError.response.data
+                        );
+                    }
                 }
             }
 
@@ -965,9 +986,10 @@ app.post(
             // RESPONSE
             // ------------------------------------------------
 
-            res.json({
+            return res.json({
 
-                success: true,
+                success:
+                    true,
 
                 status:
                     verificationStatus,
@@ -994,13 +1016,16 @@ app.post(
                         ? "online"
                         : "offline",
 
+                // ACTUAL AI SIMILARITY
                 similarity:
-                    aiResult?.similarity ??
-                    null,
+                    aiResult?.similarity !== undefined
+                        ? Number(
+                            aiResult.similarity
+                        )
+                        : null,
 
                 similarityAvailable:
-                    aiResult?.similarityAvailable ??
-                    false,
+                    aiResult?.similarityAvailable === true,
 
                 phash:
                     aiResult?.phash ??
@@ -1008,23 +1033,34 @@ app.post(
 
                 registeredPhash:
                     aiResult?.registeredPhash ??
-                    registeredPhash,
+                    registeredPHash ??
+                    null,
 
                 phashDistance:
-                    aiResult?.phashDistance ??
-                    null,
+                    aiResult?.phashDistance !== undefined
+                        ? Number(
+                            aiResult.phashDistance
+                        )
+                        : null,
 
+                // ACTUAL AI RISK
                 riskScore:
-                    aiResult?.riskScore ??
-                    null,
+                    aiResult?.riskScore !== undefined
+                        ? Number(
+                            aiResult.riskScore
+                        )
+                        : null,
 
                 riskLevel:
                     aiResult?.riskLevel ??
                     null,
 
                 riskReasons:
-                    aiResult?.riskReasons ??
-                    []
+                    Array.isArray(
+                        aiResult?.riskReasons
+                    )
+                        ? aiResult.riskReasons
+                        : []
             });
 
         } catch (error) {
@@ -1034,7 +1070,8 @@ app.post(
                 error
             );
 
-            res.status(500)
+            return res
+                .status(500)
                 .json({
 
                     success: false,
@@ -1048,7 +1085,7 @@ app.post(
 );
 
 // ============================================================
-// SAVE REGISTERED DOCUMENT METADATA
+// SAVE DOCUMENT METADATA
 // ============================================================
 
 app.post(
@@ -1072,7 +1109,8 @@ app.post(
 
             if (!documentId) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -1084,7 +1122,8 @@ app.post(
 
             if (!contentHash) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -1099,14 +1138,15 @@ app.post(
 
             const existing =
                 documents.find(
-                    item =>
+                    (item) =>
                         item.documentId ===
                         documentId
                 );
 
             if (existing) {
 
-                return res.status(409)
+                return res
+                    .status(409)
                     .json({
 
                         success: false,
@@ -1156,8 +1196,7 @@ app.post(
                     "ACTIVE",
 
                 timestamp:
-                    new Date()
-                        .toISOString()
+                    new Date().toISOString()
             };
 
             documents.push(
@@ -1168,7 +1207,8 @@ app.post(
                 documents
             );
 
-            res.status(201)
+            return res
+                .status(201)
                 .json({
 
                     success: true,
@@ -1187,7 +1227,8 @@ app.post(
                 error
             );
 
-            res.status(500)
+            return res
+                .status(500)
                 .json({
 
                     success: false,
@@ -1238,7 +1279,7 @@ app.get(
             [...documents]
                 .reverse()
                 .map(
-                    document => ({
+                    (document) => ({
 
                         documentId:
                             document.documentId,
@@ -1295,20 +1336,24 @@ app.get(
         const documents =
             readDocuments();
 
+        const requestedId =
+            String(
+                req.params.documentId
+            ).toLowerCase();
+
         const document =
             documents.find(
-                item =>
+                (item) =>
                     String(
                         item.documentId
                     ).toLowerCase() ===
-                    String(
-                        req.params.documentId
-                    ).toLowerCase()
+                    requestedId
             );
 
         if (!document) {
 
-            return res.status(404)
+            return res
+                .status(404)
                 .json({
 
                     success: false,
@@ -1338,20 +1383,24 @@ app.patch(
         const documents =
             readDocuments();
 
+        const requestedId =
+            String(
+                req.params.documentId
+            ).toLowerCase();
+
         const index =
             documents.findIndex(
-                item =>
+                (item) =>
                     String(
                         item.documentId
                     ).toLowerCase() ===
-                    String(
-                        req.params.documentId
-                    ).toLowerCase()
+                    requestedId
             );
 
         if (index === -1) {
 
-            return res.status(404)
+            return res
+                .status(404)
                 .json({
 
                     success: false,
@@ -1371,6 +1420,7 @@ app.patch(
         if (
             twinId !== undefined
         ) {
+
             documents[index].twinId =
                 twinId;
         }
@@ -1379,6 +1429,7 @@ app.patch(
             transactionHash !==
             undefined
         ) {
+
             documents[index]
                 .transactionHash =
                 transactionHash;
@@ -1387,6 +1438,7 @@ app.patch(
         if (
             ipfsCid !== undefined
         ) {
+
             documents[index].ipfsCid =
                 ipfsCid;
         }
@@ -1395,14 +1447,14 @@ app.patch(
             perceptualHash !==
             undefined
         ) {
+
             documents[index]
                 .perceptualHash =
                 perceptualHash;
         }
 
         documents[index].updatedAt =
-            new Date()
-                .toISOString();
+            new Date().toISOString();
 
         writeDocuments(
             documents
@@ -1422,12 +1474,11 @@ app.patch(
 // QR CODE
 // ============================================================
 //
-// This backend QR endpoint uses hash routing so Render
-// does not lose the verification route.
+// NOTE:
+// Your App.jsx can generate its own QR.
+// This endpoint is kept for compatibility.
 //
-// Result:
-// https://frontend.onrender.com/#/verify?twinId=XXXX
-//
+// ============================================================
 
 app.get(
     "/api/qr",
@@ -1443,7 +1494,8 @@ app.get(
 
             if (!documentId) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -1461,13 +1513,10 @@ app.get(
                 twinId || ""
             );
 
-            if (documentId) {
-
-                params.set(
-                    "documentId",
-                    documentId
-                );
-            }
+            params.set(
+                "documentId",
+                documentId
+            );
 
             if (hash) {
 
@@ -1477,6 +1526,9 @@ app.get(
                 );
             }
 
+            // Hash routing works correctly
+            // with the React frontend on Render.
+
             const verificationURL =
                 `${FRONTEND_URL}/#/verify?${params.toString()}`;
 
@@ -1485,7 +1537,9 @@ app.get(
                     verificationURL,
                     {
                         width: 300,
+
                         margin: 2,
+
                         errorCorrectionLevel:
                             "H"
                     }
@@ -1513,7 +1567,8 @@ app.get(
                 error
             );
 
-            res.status(500)
+            res
+                .status(500)
                 .json({
 
                     success: false,
@@ -1552,7 +1607,8 @@ app.use(
                 "LIMIT_FILE_SIZE"
             ) {
 
-                return res.status(400)
+                return res
+                    .status(400)
                     .json({
 
                         success: false,
@@ -1562,7 +1618,8 @@ app.use(
                     });
             }
 
-            return res.status(400)
+            return res
+                .status(400)
                 .json({
 
                     success: false,
@@ -1572,24 +1629,14 @@ app.use(
                 });
         }
 
-        if (error.message) {
-
-            return res.status(400)
-                .json({
-
-                    success: false,
-
-                    error:
-                        error.message
-                });
-        }
-
-        res.status(500)
+        return res
+            .status(400)
             .json({
 
                 success: false,
 
                 error:
+                    error.message ||
                     "Internal server error."
             });
     }
@@ -1603,18 +1650,17 @@ app.listen(
     PORT,
     async () => {
 
-        const ai =
-            await checkAIEngine();
-
         console.log("");
         console.log(
-            "========================================"
+            "================================================"
         );
+
         console.log(
-            "           DT-SDA SERVER"
+            "        DT-SDA BACKEND SERVER"
         );
+
         console.log(
-            "========================================"
+            "================================================"
         );
 
         console.log(
@@ -1622,7 +1668,18 @@ app.listen(
         );
 
         console.log(
-            `AI Engine: ${
+            `AI Engine URL: ${AI_ENGINE_URL}`
+        );
+
+        console.log(
+            `Frontend URL: ${FRONTEND_URL}`
+        );
+
+        const ai =
+            await checkAIEngine();
+
+        console.log(
+            `AI Engine Status: ${
                 ai.online
                     ? "ONLINE"
                     : "OFFLINE"
@@ -1630,16 +1687,9 @@ app.listen(
         );
 
         console.log(
-            `AI URL: ${AI_ENGINE_URL}`
+            "================================================"
         );
 
-        console.log(
-            `Frontend: ${FRONTEND_URL}`
-        );
-
-        console.log(
-            "========================================"
-        );
         console.log("");
     }
 );
