@@ -39,82 +39,674 @@ const CONTRACT_ABI = [
 ];
 
 /* =========================================================
-   VERIFICATION RISK
+   RISK CONFIGURATION
    ========================================================= */
 
-const RISK_STORAGE_KEY = "dtsda_verification_risk_v2";
+const RISK_STORAGE_KEY =
+  "dtsda_verification_risk_v2";
+
+const HISTORY_KEY =
+  "dtsda_history";
+
 const RISK_STEP = 25;
 const RISK_MAX = 100;
 const BLOCK_SECONDS = 60;
 
+/* =========================================================
+   RISK STORAGE
+   ========================================================= */
+
 function riskKey(twinId) {
-    return String(twinId || "").trim().toLowerCase();
+  return String(twinId || "")
+    .trim()
+    .toLowerCase();
 }
 
 function getRiskState(twinId) {
-    const key = riskKey(twinId);
-    if (!key) return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
-    try {
-        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
-        const x = store[key] || {};
-        return {
-            score: Math.max(0, Math.min(100, Number(x.score) || 0)),
-            invalidAttempts: Math.max(0, Number(x.invalidAttempts) || 0),
-            blockedUntil: Math.max(0, Number(x.blockedUntil) || 0)
-        };
-    } catch {
-        return { score: 0, invalidAttempts: 0, blockedUntil: 0 };
-    }
+  const key = riskKey(twinId);
+
+  if (!key) {
+    return {
+      score: 0,
+      invalidAttempts: 0,
+      blockedUntil: 0
+    };
+  }
+
+  try {
+    const store =
+      JSON.parse(
+        localStorage.getItem(
+          RISK_STORAGE_KEY
+        ) || "{}"
+      );
+
+    const x = store[key] || {};
+
+    return {
+      score: Math.max(
+        0,
+        Math.min(
+          100,
+          Number(x.score) || 0
+        )
+      ),
+
+      invalidAttempts:
+        Math.max(
+          0,
+          Number(
+            x.invalidAttempts
+          ) || 0
+        ),
+
+      blockedUntil:
+        Math.max(
+          0,
+          Number(
+            x.blockedUntil
+          ) || 0
+        )
+    };
+  } catch {
+    return {
+      score: 0,
+      invalidAttempts: 0,
+      blockedUntil: 0
+    };
+  }
 }
 
-function saveRiskState(twinId, state) {
-    const key = riskKey(twinId);
-    if (!key) return;
-    try {
-        const store = JSON.parse(localStorage.getItem(RISK_STORAGE_KEY) || "{}");
-        store[key] = {
-            score: Math.max(0, Math.min(100, Number(state.score) || 0)),
-            invalidAttempts: Math.max(0, Number(state.invalidAttempts) || 0),
-            blockedUntil: Number(state.blockedUntil) || 0
-        };
-        localStorage.setItem(RISK_STORAGE_KEY, JSON.stringify(store));
-    } catch {}
+function saveRiskState(
+  twinId,
+  state
+) {
+  const key = riskKey(twinId);
+
+  if (!key) return;
+
+  try {
+    const store =
+      JSON.parse(
+        localStorage.getItem(
+          RISK_STORAGE_KEY
+        ) || "{}"
+      );
+
+    store[key] = {
+      score: Math.max(
+        0,
+        Math.min(
+          100,
+          Number(state.score) || 0
+        )
+      ),
+
+      invalidAttempts:
+        Math.max(
+          0,
+          Number(
+            state.invalidAttempts
+          ) || 0
+        ),
+
+      blockedUntil:
+        Number(
+          state.blockedUntil
+        ) || 0
+    };
+
+    localStorage.setItem(
+      RISK_STORAGE_KEY,
+      JSON.stringify(store)
+    );
+  } catch {}
 }
 
-function clearExpiredRiskLock(twinId) {
-    const state = getRiskState(twinId);
-    if (state.blockedUntil && state.blockedUntil <= Date.now()) {
-        const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
-        saveRiskState(twinId, reset);
-        return reset;
-    }
-    return state;
-}
+function clearExpiredRiskLock(
+  twinId
+) {
+  const s =
+    getRiskState(twinId);
 
-function addInvalidRisk(twinId) {
-    const old = clearExpiredRiskLock(twinId);
-    const invalidAttempts = old.invalidAttempts + 1;
-    const score = Math.min(RISK_MAX, invalidAttempts * RISK_STEP);
-    const blockedUntil = score >= RISK_MAX
-        ? Date.now() + BLOCK_SECONDS * 1000
-        : 0;
-    const next = { score, invalidAttempts, blockedUntil };
-    saveRiskState(twinId, next);
-    return next;
-}
+  if (
+    s.blockedUntil &&
+    s.blockedUntil <= Date.now()
+  ) {
+    const reset = {
+      score: 0,
+      invalidAttempts: 0,
+      blockedUntil: 0
+    };
 
-function resetRisk(twinId) {
-    const reset = { score: 0, invalidAttempts: 0, blockedUntil: 0 };
-    saveRiskState(twinId, reset);
+    saveRiskState(
+      twinId,
+      reset
+    );
+
     return reset;
+  }
+
+  return s;
 }
 
-function getRiskLevel(score) {
-    if (score === null || score === undefined) return "UNKNOWN";
-    if (score >= 70) return "HIGH";
-    if (score >= 40) return "MEDIUM";
-    return "LOW";
+function addInvalidRisk(
+  twinId
+) {
+  const old =
+    clearExpiredRiskLock(
+      twinId
+    );
+
+  const score =
+    Math.min(
+      RISK_MAX,
+      old.score + RISK_STEP
+    );
+
+  const next = {
+    score,
+
+    invalidAttempts:
+      old.invalidAttempts + 1,
+
+    blockedUntil:
+      score >= RISK_MAX
+        ? Date.now() +
+          BLOCK_SECONDS * 1000
+        : 0
+  };
+
+  saveRiskState(
+    twinId,
+    next
+  );
+
+  return next;
 }
+
+
+/* =========================================================
+   LOCAL IMAGE HASHING
+   ========================================================= */
+
+function imageToCanvas(
+  file,
+  size = 32
+) {
+  return new Promise(
+    (resolve, reject) => {
+      const url =
+        URL.createObjectURL(file);
+
+      const img =
+        new Image();
+
+      img.onload = () => {
+        try {
+          const canvas =
+            document.createElement(
+              "canvas"
+            );
+
+          canvas.width = size;
+          canvas.height = size;
+
+          const ctx =
+            canvas.getContext(
+              "2d",
+              {
+                willReadFrequently:
+                  true
+              }
+            );
+
+          ctx.drawImage(
+            img,
+            0,
+            0,
+            size,
+            size
+          );
+
+          URL.revokeObjectURL(
+            url
+          );
+
+          resolve(
+            ctx.getImageData(
+              0,
+              0,
+              size,
+              size
+            )
+          );
+        } catch (e) {
+          URL.revokeObjectURL(
+            url
+          );
+
+          reject(e);
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(
+          url
+        );
+
+        reject(
+          new Error(
+            "Unable to read image."
+          )
+        );
+      };
+
+      img.src = url;
+    }
+  );
+}
+
+function grayscalePixels(
+  imageData
+) {
+  const out =
+    new Float64Array(
+      imageData.width *
+        imageData.height
+    );
+
+  for (
+    let i = 0, p = 0;
+    i <
+    imageData.data.length;
+    i += 4, p++
+  ) {
+    const r =
+      imageData.data[i];
+
+    const g =
+      imageData.data[i + 1];
+
+    const b =
+      imageData.data[i + 2];
+
+    out[p] =
+      0.299 * r +
+      0.587 * g +
+      0.114 * b;
+  }
+
+  return out;
+}
+
+function dctHash(
+  gray,
+  size = 32,
+  block = 8
+) {
+  const values = [];
+
+  const c = n =>
+    n === 0
+      ? 1 / Math.sqrt(2)
+      : 1;
+
+  for (
+    let u = 0;
+    u < block;
+    u++
+  ) {
+    for (
+      let v = 0;
+      v < block;
+      v++
+    ) {
+      let sum = 0;
+
+      for (
+        let x = 0;
+        x < size;
+        x++
+      ) {
+        for (
+          let y = 0;
+          y < size;
+          y++
+        ) {
+          sum +=
+            gray[
+              x * size + y
+            ] *
+            Math.cos(
+              ((2 * x + 1) *
+                u *
+                Math.PI) /
+                (2 * size)
+            ) *
+            Math.cos(
+              ((2 * y + 1) *
+                v *
+                Math.PI) /
+                (2 * size)
+            );
+        }
+      }
+
+      values.push(
+        0.25 *
+          c(u) *
+          c(v) *
+          sum
+      );
+    }
+  }
+
+  const sorted =
+    values
+      .slice(1)
+      .sort(
+        (a, b) => a - b
+      );
+
+  const median =
+    sorted[
+      Math.floor(
+        sorted.length / 2
+      )
+    ];
+
+  let hex = "";
+
+  for (
+    let i = 0;
+    i < 64;
+    i += 4
+  ) {
+    let nibble = 0;
+
+    for (
+      let j = 0;
+      j < 4;
+      j++
+    ) {
+      if (
+        values[i + j] >=
+        median
+      ) {
+        nibble |=
+          1 << (3 - j);
+      }
+    }
+
+    hex +=
+      nibble.toString(16);
+  }
+
+  return hex;
+}
+
+function differenceHash(
+  imageData,
+  size = 32
+) {
+  const gray =
+    grayscalePixels(
+      imageData
+    );
+
+  const bits = [];
+
+  for (
+    let y = 0;
+    y < size;
+    y++
+  ) {
+    for (
+      let x = 0;
+      x < size - 1;
+      x++
+    ) {
+      bits.push(
+        gray[
+          y * size + x
+        ] >
+        gray[
+          y * size + x + 1
+        ]
+          ? 1
+          : 0
+      );
+    }
+  }
+
+  let hex = "";
+
+  for (
+    let i = 0;
+    i < 1024;
+    i += 4
+  ) {
+    let n = 0;
+
+    for (
+      let j = 0;
+      j < 4;
+      j++
+    ) {
+      n |=
+        bits[i + j] <<
+        (3 - j);
+    }
+
+    hex +=
+      n.toString(16);
+  }
+
+  return hex;
+}
+
+async function localImageHashes(
+  file
+) {
+  if (
+    !file ||
+    !file.type.startsWith(
+      "image/"
+    )
+  ) {
+    return null;
+  }
+
+  const data =
+    await imageToCanvas(
+      file,
+      32
+    );
+
+  const gray =
+    grayscalePixels(data);
+
+  return {
+    phash:
+      dctHash(gray),
+
+    dhash:
+      differenceHash(data)
+  };
+}
+
+function hammingHex(
+  a,
+  b
+) {
+  const aa =
+    String(a || "")
+      .replace(/^0x/, "")
+      .toLowerCase();
+
+  const bb =
+    String(b || "")
+      .replace(/^0x/, "")
+      .toLowerCase();
+
+  if (
+    !aa ||
+    !bb ||
+    aa.length !==
+      bb.length
+  ) {
+    return null;
+  }
+
+  let distance = 0;
+
+  for (
+    let i = 0;
+    i < aa.length;
+    i++
+  ) {
+    const x =
+      parseInt(
+        aa[i],
+        16
+      );
+
+    const y =
+      parseInt(
+        bb[i],
+        16
+      );
+
+    if (
+      Number.isNaN(x) ||
+      Number.isNaN(y)
+    ) {
+      return null;
+    }
+
+    let z = x ^ y;
+
+    while (z) {
+      distance +=
+        z & 1;
+
+      z >>>= 1;
+    }
+  }
+
+  return distance;
+}
+
+function imageSimilarity(
+  registeredPHash,
+  currentHashes
+) {
+  if (
+    !registeredPHash ||
+    !currentHashes
+  ) {
+    return null;
+  }
+
+  const stored =
+    String(
+      registeredPHash
+    );
+
+  let oldP =
+    stored;
+
+  let oldD = "";
+
+  if (
+    stored.includes("|")
+  ) {
+    for (
+      const part of
+        stored.split("|")
+    ) {
+      const [
+        key,
+        value
+      ] =
+        part.split(":");
+
+      if (key === "phash") {
+        oldP = value;
+      }
+
+      if (key === "dhash") {
+        oldD = value;
+      }
+    }
+  }
+
+  const pDist =
+    hammingHex(
+      oldP,
+      currentHashes.phash
+    );
+
+  if (pDist === null) {
+    return null;
+  }
+
+  const pBits =
+    oldP
+      .replace(/^0x/, "")
+      .length * 4;
+
+  let pScore =
+    100 -
+    (pDist /
+      Math.max(
+        1,
+        pBits
+      )) *
+      100;
+
+  if (oldD) {
+    const dDist =
+      hammingHex(
+        oldD,
+        currentHashes.dhash
+      );
+
+    if (
+      dDist !== null
+    ) {
+      const dBits =
+        oldD
+          .replace(/^0x/, "")
+          .length * 4;
+
+      const dScore =
+        100 -
+        (dDist /
+          Math.max(
+            1,
+            dBits
+          )) *
+          100;
+
+      pScore =
+        pScore * 0.75 +
+        dScore * 0.25;
+    }
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Number(
+        pScore.toFixed(2)
+      )
+    )
+  );
+}
+
 
 /* =========================================================
    APP
@@ -145,69 +737,16 @@ function App() {
 
     const [verification, setVerification] = useState(null);
 
-    const [history, setHistory] = useState([]);
-
     const [riskState, setRiskState] = useState({
         score: 0,
         invalidAttempts: 0,
         blockedUntil: 0
     });
 
-    const [blockSeconds, setBlockSeconds] = useState(0);
+    const [blockSeconds, setBlockSeconds] =
+        useState(0);
 
-    /* =====================================================
-       RISK MONITOR
-       ===================================================== */
-
-    useEffect(() => {
-        const id = riskKey(verifyTwinId);
-        if (!id) {
-            setRiskState({ score: 0, invalidAttempts: 0, blockedUntil: 0 });
-            setBlockSeconds(0);
-            return;
-        }
-
-        const tick = () => {
-            const state = clearExpiredRiskLock(id);
-            setRiskState(state);
-            setBlockSeconds(
-                state.blockedUntil > Date.now()
-                    ? Math.max(0, Math.ceil((state.blockedUntil - Date.now()) / 1000))
-                    : 0
-            );
-        };
-
-        tick();
-        const timer = setInterval(tick, 1000);
-        return () => clearInterval(timer);
-    }, [verifyTwinId]);
-
-    /* =====================================================
-       OPEN VERIFY PAGE FROM QR CODE
-       ===================================================== */
-
-    useEffect(() => {
-
-        const params = new URLSearchParams(
-            window.location.search
-        );
-
-        const pageParam = params.get("page");
-        const twinIdParam = params.get("twinId");
-
-        if (pageParam === "verify") {
-
-            setPage("verify");
-            setVerification(null);
-            setMessage(null);
-
-            if (twinIdParam) {
-                setVerifyTwinId(twinIdParam);
-            }
-
-        }
-
-    }, []);
+    const [history, setHistory] = useState([]);
 
     /* =====================================================
        LOAD HISTORY
@@ -231,6 +770,47 @@ function App() {
         }
 
     }, []);
+
+
+    /* =====================================================
+       RISK TIMER
+       ===================================================== */
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const twinId = verifyTwinId.trim();
+
+            if (!twinId) {
+                setRiskState({
+                    score: 0,
+                    invalidAttempts: 0,
+                    blockedUntil: 0
+                });
+                setBlockSeconds(0);
+                return;
+            }
+
+            const state =
+                clearExpiredRiskLock(twinId);
+
+            setRiskState(state);
+
+            setBlockSeconds(
+                state.blockedUntil
+                    ? Math.max(
+                          0,
+                          Math.ceil(
+                              (state.blockedUntil -
+                                  Date.now()) /
+                                  1000
+                          )
+                      )
+                    : 0
+            );
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [verifyTwinId]);
 
     /* =====================================================
        METAMASK LISTENERS
@@ -562,6 +1142,16 @@ function App() {
 
         formData.append(
             "registeredPHash",
+            registeredPHash
+        );
+
+        formData.append(
+            "registered_hash",
+            registeredHash
+        );
+
+        formData.append(
+            "registered_phash",
             registeredPHash
         );
 
@@ -1309,19 +1899,16 @@ function App() {
                         file
                     );
 
-                /* ---------------------------------------------
-                   QR CODE FOR EXISTING TWIN
-                   --------------------------------------------- */
+                const existingQrText =
+                    `${window.location.origin}/?page=verify&twinId=${encodeURIComponent(twinId)}`;
 
-                const qrText =
-                    `${window.location.origin}/?page=verify&twinId=${twinId}`;
-
-                const qr =
+                const existingQr =
                     await QRCode.toDataURL(
-                        qrText,
+                        existingQrText,
                         {
                             width: 260,
-                            margin: 2
+                            margin: 2,
+                            errorCorrectionLevel: "H"
                         }
                     );
 
@@ -1341,8 +1928,6 @@ function App() {
                     documentType:
                         existingType,
 
-                    qr,
-
                     timestamp:
                         new Date(
                             Number(
@@ -1354,6 +1939,9 @@ function App() {
                         getStatusName(
                             existing.status
                         ),
+
+                    qr:
+                        existingQr,
 
                     ai:
                         existingAI
@@ -1532,500 +2120,559 @@ function App() {
        ===================================================== */
 
     async function verifyDocument() {
+        const twinId =
+          verifyTwinId.trim();
 
-        if (!verifyTwinId.trim()) {
+        if (!CONTRACT_ADDRESS) {
+          setMessage({
+            type: "error",
+            text:
+              "Please set VITE_CONTRACT_ADDRESS in .env."
+          });
 
-            setMessage({
-                type: "error",
-                text:
-                    "Enter the Twin ID."
-            });
+          return;
+        }
 
-            return;
+        if (!twinId) {
+          setMessage({
+            type: "error",
+            text:
+              "Enter the Twin ID."
+          });
 
+          return;
         }
 
         if (!verifyFile) {
+          setMessage({
+            type: "error",
+            text:
+              "Choose the document to verify."
+          });
 
-            setMessage({
-                type: "error",
-                text:
-                    "Choose the document to verify."
-            });
-
-            return;
-
+          return;
         }
 
-        const currentRisk = clearExpiredRiskLock(verifyTwinId.trim());
-        if (currentRisk.blockedUntil > Date.now()) {
-            setRiskState(currentRisk);
-            setBlockSeconds(Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000));
-            setMessage({
-                type: "error",
-                text: `Verification temporarily blocked. Try again in ${Math.ceil((currentRisk.blockedUntil - Date.now()) / 1000)} seconds.`
-            });
-            return;
-        }
+        const before =
+          clearExpiredRiskLock(
+            twinId
+          );
+
+        const beforeRemaining =
+          before.blockedUntil
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (before.blockedUntil -
+                    Date.now()) /
+                    1000
+                )
+              )
+            : 0;
+
+        setRiskState(before);
+
+        setBlockSeconds(
+          beforeRemaining
+        );
 
         if (
-            CONTRACT_ADDRESS ===
-            "PASTE_YOUR_DEPLOYED_CONTRACT_ADDRESS_HERE"
+          beforeRemaining > 0
         ) {
+          setMessage({
+            type: "error",
+            text:
+              `Verification is temporarily blocked. Try again in ${beforeRemaining} seconds.`
+          });
 
-            setMessage({
-                type: "error",
-                text:
-                    "Please set VITE_CONTRACT_ADDRESS in .env."
-            });
-
-            return;
-
+          return;
         }
 
         try {
+          setLoading(true);
 
-            setLoading(true);
-            setMessage(null);
-            setVerification(null);
+          setMessage(null);
 
-            /* ---------------------------------------------
-               SEPOLIA PROVIDER
-               --------------------------------------------- */
+          setVerification(null);
 
-            const provider =
-                new ethers.JsonRpcProvider(
-                    SEPOLIA_RPC
-                );
-
-            /* ---------------------------------------------
-               CHECK NETWORK
-               --------------------------------------------- */
-
-            const networkInfo =
-                await provider.getNetwork();
-
-            if (
-                Number(networkInfo.chainId) !==
-                SEPOLIA_CHAIN_ID
-            ) {
-
-                throw new Error(
-                    "The blockchain RPC is not connected to Ethereum Sepolia."
-                );
-
-            }
-
-            /* ---------------------------------------------
-               CONTRACT
-               --------------------------------------------- */
-
-            const contract =
-                new ethers.Contract(
-                    CONTRACT_ADDRESS,
-                    CONTRACT_ABI,
-                    provider
-                );
-
-            /* ---------------------------------------------
-               READ BLOCKCHAIN
-               --------------------------------------------- */
-
-            const twin =
-                await readTwin(
-                    contract,
-                    verifyTwinId.trim()
-                );
-
-            if (!twin) {
-
-                throw new Error(
-                    "Digital Twin could not be read."
-                );
-
-            }
-
-            const timestamp =
-                Number(
-                    twin.timestamp
-                );
-
-            /* ---------------------------------------------
-               NOT REGISTERED
-               --------------------------------------------- */
-
-            if (!timestamp) {
-
-                const nextRisk = addInvalidRisk(verifyTwinId.trim());
-                setRiskState(nextRisk);
-                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
-
-                const invalidResult = {
-
-                    result:
-                        "INVALID",
-
-                    reason:
-                        "Document is not registered on the blockchain.",
-
-                    twinId:
-                        verifyTwinId.trim(),
-
-                    documentId:
-                        "—",
-
-                    documentType:
-                        getDocumentType(
-                            null,
-                            verifyFile
-                        ),
-
-                    submittedHash:
-                        "",
-
-                    blockchainHash:
-                        "",
-
-                    issuer:
-                        "",
-
-                    timestamp:
-                        "",
-
-                    status:
-                        "NOT REGISTERED",
-
-                    hashMatch:
-                        false,
-
-                    ai:
-                        null,
-
-                    similarity:
-                        0,
-
-                    riskScore:
-                        nextRisk.score,
-
-                    riskLevel:
-                        getRiskLevel(nextRisk.score)
-
-                };
-
-                setVerification(
-                    invalidResult
-                );
-
-                saveHistory({
-
-                    type:
-                        "VERIFICATION",
-
-                    ...invalidResult,
-
-                    checkedAt:
-                        new Date().toISOString()
-
-                });
-
-                setMessage({
-
-                    type: "error",
-
-                    text:
-                        "Document is not registered."
-
-                });
-
-                return;
-
-            }
-
-            /* ---------------------------------------------
-               STATUS
-               --------------------------------------------- */
-
-            const status =
-                Number(
-                    twin.status
-                );
-
-            const statusName =
-                getStatusName(
-                    status
-                );
-
-            /* ---------------------------------------------
-               REVOKED
-               --------------------------------------------- */
-
-            if (status === 3) {
-
-                const nextRisk = addInvalidRisk(verifyTwinId.trim());
-                setRiskState(nextRisk);
-                setBlockSeconds(nextRisk.blockedUntil > Date.now() ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000) : 0);
-
-                const revokedResult = {
-
-                    result:
-                        "INVALID",
-
-                    reason:
-                        "Document has been revoked.",
-
-                    twinId:
-                        verifyTwinId.trim(),
-
-                    documentId:
-                        twin.documentId,
-
-                    documentType:
-                        getDocumentType(
-                            null,
-                            verifyFile
-                        ),
-
-                    issuer:
-                        twin.issuer,
-
-                    timestamp:
-                        new Date(
-                            timestamp * 1000
-                        ).toISOString(),
-
-                    status:
-                        statusName,
-
-                    hashMatch:
-                        false,
-
-                    perceptualHash:
-                        twin.perceptualHash,
-
-                    ai:
-                        null,
-
-                    similarity:
-                        0,
-
-                    riskScore:
-                        nextRisk.score,
-
-                    riskLevel:
-                        getRiskLevel(nextRisk.score)
-
-                };
-
-                setVerification(
-                    revokedResult
-                );
-
-                setMessage({
-
-                    type: "error",
-
-                    text:
-                        "Document has been revoked."
-
-                });
-
-                return;
-
-            }
-
-            /* ---------------------------------------------
-               SHA256
-               --------------------------------------------- */
-
-            const submittedHash =
-                await sha256File(
-                    verifyFile
-                );
-
-            const blockchainHash =
-                twin.contentHash;
-
-            const hashMatch =
-                submittedHash.toLowerCase() ===
-                blockchainHash.toLowerCase();
-
-            /* ---------------------------------------------
-               AI
-               --------------------------------------------- */
-
-            let aiResult = null;
-
-            try {
-
-                aiResult =
-                    await runAIAnalysis(
-                        verifyFile,
-                        blockchainHash,
-                        twin.perceptualHash
-                    );
-
-            } catch (aiError) {
-
-                console.warn(
-                    "AI verification unavailable:",
-                    aiError
-                );
-
-            }
-
-            /* ---------------------------------------------
-               SCORE FALLBACK
-               --------------------------------------------- */
-
-            const similarity =
-                aiResult?.similarity ??
-                (hashMatch ? 100 : 0);
-
-            const riskScore =
-                nextRisk.score;
-
-            const riskLevel =
-                getRiskLevel(
-                    riskScore
-                );
-
-            const documentType =
-                getDocumentType(
-                    aiResult,
-                    verifyFile
-                );
-
-            /* ---------------------------------------------
-               VALIDATION
-               --------------------------------------------- */
-
-            const valid =
-                hashMatch;
-
-            const nextRisk = valid
-                ? resetRisk(verifyTwinId.trim())
-                : addInvalidRisk(verifyTwinId.trim());
-
-            setRiskState(nextRisk);
-            setBlockSeconds(
-                nextRisk.blockedUntil > Date.now()
-                    ? Math.ceil((nextRisk.blockedUntil - Date.now()) / 1000)
-                    : 0
+          const provider =
+            new ethers.JsonRpcProvider(
+              SEPOLIA_RPC
             );
 
-            const verificationResult = {
+          const n =
+            await provider.getNetwork();
 
-                result:
-                    valid
-                        ? "VALID"
-                        : "INVALID",
+          if (
+            Number(n.chainId) !==
+            SEPOLIA_CHAIN_ID
+          ) {
+            throw new Error(
+              "The blockchain RPC is not connected to Ethereum Sepolia."
+            );
+          }
 
-                reason:
-                    valid
-                        ? "Document is authentic and has not been tampered with."
-                        : "Document tampered: content hash mismatch.",
+          const code =
+            await provider.getCode(
+              CONTRACT_ADDRESS
+            );
 
-                twinId:
-                    verifyTwinId.trim(),
+          if (
+            code === "0x"
+          ) {
+            throw new Error(
+              "No smart contract was found at VITE_CONTRACT_ADDRESS on Sepolia."
+            );
+          }
 
-                documentId:
-                    twin.documentId,
+          const contract =
+            new ethers.Contract(
+              CONTRACT_ADDRESS,
+              CONTRACT_ABI,
+              provider
+            );
 
-                documentType,
+          const twin =
+            await readTwin(
+              contract,
+              twinId
+            );
 
-                issuer:
-                    twin.issuer,
+          /* ---------------------------------------------
+             NOT REGISTERED
+             --------------------------------------------- */
 
-                timestamp:
-                    new Date(
-                        timestamp * 1000
-                    ).toISOString(),
+          if (!twin.timestamp) {
+            const r =
+              addInvalidRisk(
+                twinId
+              );
 
-                status:
-                    statusName,
+            setRiskState(r);
 
-                hashMatch,
+            setBlockSeconds(
+              r.blockedUntil
+                ? Math.ceil(
+                    (r.blockedUntil -
+                      Date.now()) /
+                      1000
+                  )
+                : 0
+            );
 
-                perceptualHash:
-                    twin.perceptualHash,
+            const result = {
+              result:
+                "INVALID",
 
-                ai:
-                    aiResult
-                        ? {
-                            ...aiResult,
-                            similarity,
-                            riskScore,
-                            riskLevel,
-                            documentType
-                        }
-                        : {
-                            similarity,
-                            riskScore,
-                            riskLevel,
-                            documentType
-                        },
+              reason:
+                "Document is not registered on the blockchain.",
 
-                similarity,
+              twinId,
 
-                riskScore,
+              documentId:
+                "—",
 
-                riskLevel
+              documentType:
+                getDocumentType(
+                  null,
+                  verifyFile
+                ),
 
+              issuer:
+                "",
+
+              timestamp:
+                "",
+
+              status:
+                "NOT REGISTERED",
+
+              hashMatch:
+                false,
+
+              perceptualHash:
+                "",
+
+              similarity:
+                0,
+
+              riskScore:
+                r.score,
+
+              riskLevel:
+                getRiskLevel(
+                  r.score
+                )
             };
 
             setVerification(
-                verificationResult
+              result
             );
 
-            saveHistory({
+            addHistory({
+              type:
+                "VERIFICATION",
 
-                type:
-                    "VERIFICATION",
+              ...result,
 
-                ...verificationResult,
-
-                checkedAt:
-                    new Date().toISOString()
-
+              checkedAt:
+                new Date().toISOString()
             });
 
             setMessage({
+              type: "error",
 
-                type:
-                    valid
-                        ? "success"
-                        : "error",
-
-                text:
-                    valid
-                        ? "Document is valid."
-                        : "Document verification failed."
-
+              text:
+                r.score >= 100
+                  ? "Risk score reached 100. Verification is blocked for 60 seconds."
+                  : `Invalid verification. Risk score increased to ${r.score}/100.`
             });
 
-        } catch (error) {
+            return;
+          }
 
-            console.error(
-                "Verification error:",
-                error
+          /* ---------------------------------------------
+             REVOKED
+             --------------------------------------------- */
+
+          if (
+            twin.status === 3
+          ) {
+            const r =
+              addInvalidRisk(
+                twinId
+              );
+
+            const result = {
+              result:
+                "INVALID",
+
+              reason:
+                "Document has been revoked.",
+
+              twinId,
+
+              documentId:
+                twin.documentId,
+
+              documentType:
+                getDocumentType(
+                  null,
+                  verifyFile
+                ),
+
+              issuer:
+                twin.issuer,
+
+              timestamp:
+                new Date(
+                  Number(
+                    twin.timestamp
+                  ) * 1000
+                ).toISOString(),
+
+              status:
+                getStatusName(
+                  twin.status
+                ),
+
+              hashMatch:
+                false,
+
+              perceptualHash:
+                twin.perceptualHash,
+
+              similarity:
+                0,
+
+              riskScore:
+                r.score,
+
+              riskLevel:
+                getRiskLevel(
+                  r.score
+                )
+            };
+
+            setRiskState(r);
+
+            setBlockSeconds(
+              r.blockedUntil
+                ? Math.ceil(
+                    (r.blockedUntil -
+                      Date.now()) /
+                      1000
+                  )
+                : 0
             );
 
-            setMessage({
+            setVerification(
+              result
+            );
 
-                type: "error",
+            addHistory({
+              type:
+                "VERIFICATION",
 
-                text:
-                    getErrorMessage(error)
+              ...result,
 
+              checkedAt:
+                new Date().toISOString()
             });
 
+            setMessage({
+              type: "error",
+
+              text:
+                r.score >= 100
+                  ? "Document revoked. Verification is blocked for 60 seconds."
+                  : `Document revoked. Risk score increased to ${r.score}/100.`
+            });
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             SHA-256
+             --------------------------------------------- */
+
+          const submittedHash =
+            await sha256File(
+              verifyFile
+            );
+
+          const hashMatch =
+            submittedHash.toLowerCase() ===
+            twin.contentHash.toLowerCase();
+
+          /* ---------------------------------------------
+             AI
+             --------------------------------------------- */
+
+          let ai = null;
+
+          try {
+            ai =
+              await backendAI(
+                verifyFile,
+                twin.contentHash,
+                twin.perceptualHash
+              );
+          } catch (e) {
+            console.warn(
+              "AI engine unavailable:",
+              e
+            );
+          }
+
+          /* ---------------------------------------------
+             IMAGE SIMILARITY
+             --------------------------------------------- */
+
+          let similarity = null;
+
+          if (
+            verifyFile.type.startsWith(
+              "image/"
+            ) &&
+            twin.perceptualHash
+          ) {
+            const currentHashes =
+              await localImageHashes(
+                verifyFile
+              );
+
+            similarity =
+              imageSimilarity(
+                twin.perceptualHash,
+                currentHashes
+              );
+          }
+
+          /* Exact document = 100% */
+          if (hashMatch) {
+            similarity = 100;
+          }
+
+          if (
+            similarity == null
+          ) {
+            similarity =
+              ai?.similarity ??
+              (hashMatch
+                ? 100
+                : 0);
+          }
+
+          similarity =
+            Math.max(
+              0,
+              Math.min(
+                100,
+                Number(
+                  similarity.toFixed(
+                    2
+                  )
+                )
+              )
+            );
+
+          /* ---------------------------------------------
+             RISK
+             --------------------------------------------- */
+
+          const r =
+            hashMatch
+              ? {
+                  score: 0,
+                  invalidAttempts: 0,
+                  blockedUntil: 0
+                }
+              : addInvalidRisk(
+                  twinId
+                );
+
+          if (hashMatch) {
+            saveRiskState(
+              twinId,
+              r
+            );
+          }
+
+          setRiskState(r);
+
+          const remaining =
+            r.blockedUntil
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (r.blockedUntil -
+                      Date.now()) /
+                      1000
+                  )
+                )
+              : 0;
+
+          setBlockSeconds(
+            remaining
+          );
+
+          /* ---------------------------------------------
+             RESULT
+             --------------------------------------------- */
+
+          const result = {
+            result:
+              hashMatch
+                ? "VALID"
+                : "INVALID",
+
+            reason:
+              hashMatch
+                ? "Document is authentic and has not been tampered with."
+                : "Document tampered: content hash mismatch.",
+
+            twinId,
+
+            documentId:
+              twin.documentId,
+
+            documentType:
+              getDocumentType(
+                ai,
+                verifyFile
+              ),
+
+            issuer:
+              twin.issuer,
+
+            timestamp:
+              new Date(
+                Number(
+                  twin.timestamp
+                ) * 1000
+              ).toISOString(),
+
+            status:
+              getStatusName(
+                twin.status
+              ),
+
+            hashMatch,
+
+            perceptualHash:
+              twin.perceptualHash,
+
+            submittedHash,
+
+            blockchainHash:
+              twin.contentHash,
+
+            similarity,
+
+            riskScore:
+              r.score,
+
+            riskLevel:
+              getRiskLevel(
+                r.score
+              ),
+
+            ai: {
+              ...(ai || {}),
+
+              similarity,
+
+              riskScore:
+                r.score,
+
+              riskLevel:
+                getRiskLevel(
+                  r.score
+                )
+            }
+          };
+
+          setVerification(
+            result
+          );
+
+          addHistory({
+            type:
+              "VERIFICATION",
+
+            ...result,
+
+            checkedAt:
+              new Date().toISOString()
+          });
+
+          setMessage({
+            type:
+              hashMatch
+                ? "success"
+                : "error",
+
+            text:
+              hashMatch
+                ? "Document is valid. Risk score reset to 0/100."
+                : r.score >= 100
+                  ? "Invalid document. Risk score reached 100. Verification is blocked for 60 seconds."
+                  : `Invalid document. Visual similarity: ${similarity}%. Risk score: ${r.score}/100.`
+          });
+        } catch (e) {
+          console.error(e);
+
+          setMessage({
+            type: "error",
+            text:
+              getErrorMessage(e)
+          });
         } finally {
-
-            setLoading(false);
-
+          setLoading(false);
         }
+      }
 
-    }
 
     /* =====================================================
        HISTORY
@@ -2432,8 +3079,12 @@ function App() {
                             verification={
                                 verification
                             }
-                            riskState={riskState}
-                            blockSeconds={blockSeconds}
+                            riskState={
+                                riskState
+                            }
+                            blockSeconds={
+                                blockSeconds
+                            }
                         />
 
                     )}
@@ -3108,15 +3759,6 @@ function Verify({
 
                 )}
 
-                {blockSeconds > 0 && (
-                    <div className="risk-lock-banner">
-                        <strong>Verification temporarily blocked</strong>
-                        <span>
-                            Risk score reached 100/100. Try again in {blockSeconds} seconds.
-                        </span>
-                    </div>
-                )}
-
                 <button
                     className="primary-button"
                     onClick={
@@ -3127,42 +3769,68 @@ function Verify({
                         blockSeconds > 0
                     }
                 >
-
                     {loading
                         ? "Verifying..."
-                        : "✓  Verify Document"}
+                        : blockSeconds > 0
+                            ? `Blocked (${blockSeconds}s)`
+                            : "✓  Verify Document"}
 
                 </button>
 
             </div>
 
             <div className="risk-monitor-card">
+
                 <div className="risk-monitor-top">
+
                     <div>
-                        <span className="risk-monitor-label">Verification Risk</span>
-                        <strong>{riskState?.score ?? 0}/100</strong>
+                        <span className="risk-monitor-label">
+                            Verification Risk
+                        </span>
+
+                        <strong>
+                            {riskState.score}/100
+                        </strong>
                     </div>
-                    <span className={
-                        (riskState?.score ?? 0) >= 70
-                            ? "risk-badge high"
-                            : (riskState?.score ?? 0) >= 40
-                                ? "risk-badge medium"
-                                : "risk-badge low"
-                    }>
-                        {blockSeconds > 0 ? "BLOCKED" : getRiskLevel(riskState?.score ?? 0)}
+
+                    <span
+                        className={`risk-badge ${
+                            blockSeconds > 0
+                                ? "high"
+                                : riskState.score >= 70
+                                    ? "high"
+                                    : riskState.score >= 40
+                                        ? "medium"
+                                        : "low"
+                        }`}
+                    >
+                        {blockSeconds > 0
+                            ? "BLOCKED"
+                            : getRiskLevelOutside(riskState.score)}
                     </span>
+
                 </div>
+
                 <div className="risk-monitor-bar">
-                    <span style={{ width: `${Math.min(100, riskState?.score ?? 0)}%` }} />
+                    <span
+                        style={{
+                            width: `${riskState.score}%`
+                        }}
+                    />
                 </div>
+
                 <div className="risk-monitor-footer">
-                    <span>Invalid attempts: {riskState?.invalidAttempts ?? 0}</span>
+                    <span>
+                        Invalid attempts: {riskState.invalidAttempts}
+                    </span>
+
                     <span>
                         {blockSeconds > 0
                             ? `Blocked for ${blockSeconds}s`
                             : "Each invalid attempt: +25 risk"}
                     </span>
                 </div>
+
             </div>
 
             {verification ? (
